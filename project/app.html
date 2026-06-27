@@ -112,8 +112,9 @@ button{font-family:inherit;cursor:pointer;}
 .canvas-empty span{font-size:13.5px;max-width:260px;}
 
 /* dropzone */
-.dropzone{min-height:30px;transition:.15s;}
-.dropzone.over{background:rgba(99,102,241,.1);box-shadow:inset 0 0 0 2px var(--brand);}
+.dropzone{min-height:30px;transition:.12s;position:relative;}
+.dropzone.over{background:rgba(99,102,241,.06);}
+.dropzone.over::after{content:'';position:absolute;left:16px;right:16px;top:-2px;height:3px;background:var(--brand);border-radius:3px;box-shadow:0 0 10px var(--glow),0 0 4px var(--glow);z-index:10;}
 .drop-line{height:3px;background:var(--brand);margin:0;border-radius:2px;box-shadow:0 0 8px var(--glow);}
 
 /* rendered block wrapper (in iframe-like canvas, but we render directly with scoped styles) */
@@ -124,6 +125,10 @@ button{font-family:inherit;cursor:pointer;}
 .blk.sel .blk-tag{display:flex;}
 .blk-tag button{background:rgba(255,255,255,.2);border:0;color:#fff;width:18px;height:18px;border-radius:4px;display:grid;place-items:center;font-size:12px;line-height:1;}
 .blk-tag button:hover{background:rgba(255,255,255,.35);}
+/* Inspector hover label */
+.blk-insp{position:absolute;top:7px;left:7px;background:rgba(15,15,26,.78);backdrop-filter:blur(6px);color:#a5b4fc;font-family:var(--fd);font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:6px;border:1px solid rgba(99,102,241,.35);pointer-events:none;opacity:0;transition:opacity .14s;z-index:4;white-space:nowrap;letter-spacing:.03em;}
+.blk:hover .blk-insp{opacity:1;}
+.blk.sel .blk-insp{opacity:0;}
 
 /* properties */
 .props-empty{padding:40px 20px;text-align:center;color:var(--ink-3);font-size:13.5px;}
@@ -179,14 +184,71 @@ button{font-family:inherit;cursor:pointer;}
 
 /* SEO score */
 .seo-score-box{padding:16px;display:flex;align-items:center;gap:14px;}
-.seo-ring{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;flex:none;}
-.seo-ring i{width:48px;height:48px;border-radius:50%;background:var(--panel);display:grid;place-items:center;font-family:var(--fd);font-weight:700;font-size:18px;font-style:normal;}
-.seo-checks{padding:0 16px 14px;display:flex;flex-direction:column;gap:7px;}
-.seo-chk{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink-2);}
-.seo-chk .mk{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;flex:none;}
+.seo-ring{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;flex:none;}
+.seo-ring i{width:50px;height:50px;border-radius:50%;background:var(--panel);display:grid;place-items:center;font-family:var(--fd);font-weight:700;font-size:20px;font-style:normal;}
+/* SEO category bars */
+.seo-cats{padding:0 16px 10px;display:flex;flex-direction:column;gap:7px;}
+.seo-cat{display:flex;align-items:center;gap:9px;}
+.seo-cat .cl{font-size:11.5px;font-weight:500;color:var(--ink-2);width:108px;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.seo-cat .cb{flex:1;height:5px;border-radius:3px;background:var(--surface-2);}
+.seo-cat .cf{height:5px;border-radius:3px;transition:width .4s cubic-bezier(.22,1,.36,1);}
+.seo-cat .cv{font-size:11px;font-weight:700;width:28px;text-align:right;flex:none;}
+/* SEO checks */
+.seo-checks{padding:0 16px 12px;display:flex;flex-direction:column;gap:6px;}
+.seo-chk{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;color:var(--ink-2);}
+.seo-chk .mk{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;flex:none;margin-top:1px;}
 .seo-chk .mk svg{width:11px;height:11px;}
 .seo-chk.pass .mk{background:rgba(34,197,94,.16);color:var(--ok);}
 .seo-chk.fail .mk{background:rgba(245,158,11,.16);color:var(--warn);}
+.seo-chk.info .mk{background:rgba(99,102,241,.12);color:var(--brand);}
+.seo-chk-tip{font-size:11px;color:var(--ink-3);margin-top:2px;}
+/* Social Preview */
+.seo-social-prev{overflow:hidden;}
+/* Build Report */
+.bld-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;}
+.bld-stat{padding:10px 12px;background:var(--surface);border-radius:8px;border:1px solid var(--border);}
+.bld-stat-val{font-size:18px;font-weight:700;font-family:var(--fd);}
+.bld-stat-lbl{font-size:11.5px;color:var(--ink-3);margin-top:2px;}
+.bld-stat-sub{font-size:10.5px;color:var(--ink-3);margin-top:1px;}
+.bld-warn{display:flex;gap:7px;align-items:flex-start;font-size:12px;color:var(--warn);padding:5px 0;}
+.bld-warn svg{width:14px;height:14px;flex:none;margin-top:1px;}
+
+/* rich text toolbar */
+.rtb{position:fixed;z-index:300;background:var(--panel-2);border:1px solid var(--border-2);border-radius:10px;display:none;align-items:center;gap:2px;padding:4px;box-shadow:0 8px 24px -8px rgba(0,0,0,.7);user-select:none;}
+.rtb.show{display:flex;}
+.rtb-btn{width:30px;height:30px;border:0;background:transparent;color:var(--ink-2);border-radius:6px;display:grid;place-items:center;font-family:var(--fd);font-weight:700;font-size:13px;cursor:pointer;transition:.12s;}
+.rtb-btn:hover{background:var(--surface-2);color:var(--ink);}
+.rtb-sep{width:1px;height:20px;background:var(--border);margin:0 2px;flex:none;}
+.rtb-links{position:fixed;z-index:301;background:var(--panel);border:1px solid var(--border-2);border-radius:10px;display:none;flex-direction:column;overflow:hidden;box-shadow:0 12px 32px -10px rgba(0,0,0,.7);min-width:230px;max-height:280px;}
+.rtb-links.show{display:flex;}
+.rtb-link-list{overflow-y:auto;max-height:200px;}
+.rtb-link-row{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:9px 12px;cursor:pointer;font-size:13px;color:var(--ink);transition:.1s;}
+.rtb-link-row:hover{background:var(--surface-2);}
+.rtb-link-url{font-size:11px;color:var(--ink-3);font-family:var(--fm);flex-none;}
+.rtb-link-custom{padding:8px 10px;border-top:1px solid var(--border);flex:none;}
+.rtb-link-custom input{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--ink);font-family:var(--fm);font-size:12px;padding:7px 10px;border-radius:7px;outline:none;}
+.rtb-link-custom input:focus{border-color:var(--brand);}
+/* drag ghost */
+.drag-ghost{position:fixed;z-index:500;pointer-events:none;background:var(--panel-2);border:1.5px solid var(--brand);border-radius:9px;padding:7px 13px;font-family:var(--fd);font-size:13px;font-weight:600;color:var(--ink);display:none;align-items:center;gap:8px;box-shadow:0 8px 20px -8px var(--glow);opacity:.92;white-space:nowrap;}
+.drag-ghost.show{display:flex;}
+.drag-ghost .dg-ic{width:22px;height:22px;border-radius:5px;background:rgba(99,102,241,.2);color:var(--brand-2);display:grid;place-items:center;flex:none;}
+.drag-ghost .dg-ic svg{width:13px;height:13px;}
+/* install guide */
+.install-guide{border-top:1px solid var(--border);overflow:hidden;max-height:0;transition:max-height .3s ease;}
+.install-guide ol{padding-left:22px;display:flex;flex-direction:column;gap:6px;}
+
+/* version history rows */
+.hist-row{display:flex;align-items:flex-start;gap:12px;padding:11px 20px;cursor:pointer;transition:.12s;border-left:3px solid transparent;}
+.hist-row:hover{background:var(--surface);}
+.hist-row.hist-curr{border-left-color:var(--brand);background:rgba(99,102,241,.06);}
+.hist-dot{width:10px;height:10px;border-radius:50%;background:var(--border-2);border:2px solid var(--surface-2);flex:none;margin-top:4px;}
+.hist-curr .hist-dot{background:var(--brand);border-color:rgba(99,102,241,.3);}
+.hist-info{flex:1;min-width:0;}
+.hist-time{font-size:13.5px;font-weight:600;display:block;}
+.hist-curr .hist-time{color:var(--brand);}
+.hist-meta{font-size:12px;color:var(--ink-3);display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hist-restore{font-size:12px;font-weight:600;font-family:var(--fd);color:var(--brand);padding:5px 12px;border:1px solid rgba(99,102,241,.3);border-radius:7px;background:rgba(99,102,241,.08);flex:none;transition:.15s;}
+.hist-restore:hover{background:rgba(99,102,241,.18);}
 
 /* start screen (template picker) */
 .start{position:fixed;inset:0;z-index:100;background:var(--bg);overflow-y:auto;}
@@ -309,6 +371,27 @@ button{font-family:inherit;cursor:pointer;}
 }
 @media(max-width:560px){.tpl-grid{grid-template-columns:1fr;}.gate-grid{grid-template-columns:1fr;}}
 @keyframes sheetUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+
+/* Command Palette */
+.cmd-pal{position:fixed;inset:0;z-index:180;display:none;align-items:flex-start;justify-content:center;padding-top:12vh;}
+.cmd-pal.open{display:flex;}
+.cmd-scrim{position:absolute;inset:0;background:rgba(0,0,0,.58);backdrop-filter:blur(6px);}
+.cmd-box{position:relative;width:min(580px,94vw);background:var(--panel);border:1px solid var(--border-2);border-radius:14px;overflow:hidden;box-shadow:0 32px 80px -20px rgba(0,0,0,.75);}
+.cmd-search{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);}
+.cmd-search svg{width:18px;height:18px;color:var(--ink-3);flex:none;}
+.cmd-inp{flex:1;background:transparent;border:0;outline:none;font-family:var(--fd);font-size:15px;color:var(--ink);}
+.cmd-inp::placeholder{color:var(--ink-3);}
+.cmd-esc-tag{font-size:11px;color:var(--ink-3);font-family:var(--fm);background:var(--surface-2);border:1px solid var(--border);padding:2px 7px;border-radius:5px;flex:none;}
+.cmd-list{max-height:390px;overflow-y:auto;padding:6px 6px 10px;}
+.cmd-grp{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding:10px 11px 4px;}
+.cmd-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:8px;cursor:pointer;transition:.1s;}
+.cmd-row:hover,.cmd-row.hi{background:var(--surface-2);}
+.cmd-row .ci{width:30px;height:30px;border-radius:7px;background:rgba(99,102,241,.12);color:var(--brand-2);display:grid;place-items:center;flex:none;}
+.cmd-row .ci svg{width:15px;height:15px;}
+.cmd-row .cn{font-size:13.5px;font-weight:500;flex:1;min-width:0;}
+.cmd-row .cs{font-size:12px;color:var(--ink-3);flex:1;min-width:0;}
+.cmd-row .ck{font-family:var(--fm);font-size:11px;background:var(--surface-2);border:1px solid var(--border);color:var(--ink-3);padding:2px 7px;border-radius:5px;flex:none;white-space:nowrap;}
+.cmd-empty{padding:30px;text-align:center;color:var(--ink-3);font-size:13.5px;}
 </style>
 </head>
 <body>
@@ -384,9 +467,13 @@ button{font-family:inherit;cursor:pointer;}
     <button data-vw="mobile" title="มือถือ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></button>
   </div>
   <div class="tb-right">
+    <input type="file" id="importFile" accept=".json" style="display:none">
+    <button class="icon-btn" id="importBtn" title="โหลดโปรเจกต์ (.json)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></button>
+    <button class="icon-btn" id="historyBtn" title="Version History"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button>
     <button class="icon-btn" id="popoutBtn" title="เปิดพรีวิวหน้าต่างใหม่"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M10 14L21 3M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/></svg></button>
     <button class="icon-btn" id="undoBtn" title="ย้อนกลับ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 015 5v0a5 5 0 01-5 5H9"/></svg></button>
     <button class="btn btn-ghost btn-sm" id="restartBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9 9 0 00-9 9z"/><path d="M3 3v6h6"/></svg>เริ่มใหม่</button>
+    <button class="btn btn-ghost btn-sm" id="cmdBtn" title="Command Palette (Ctrl+K)" style="gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><span style="font-family:var(--fm);font-size:11px;opacity:.7">⌘K</span></button>
     <button class="btn btn-primary btn-sm" id="exportBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export XML</button>
   </div>
 </div>
@@ -441,16 +528,70 @@ button{font-family:inherit;cursor:pointer;}
       <span class="vbadge ok" id="validBadge">✓ valid</span>
       <button class="icon-btn x" data-x><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
+    <div id="buildReport" style="border-bottom:1px solid var(--border);overflow:hidden;max-height:0;transition:max-height .3s ease;"></div>
+    <div class="install-guide" id="installGuide"></div>
     <div class="modal-body"><pre><code id="xmlOut"></code></pre></div>
     <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" id="toggleReport" title="Build Report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="17" width="12" height="4" rx="1"/></svg>Report</button>
+      <button class="btn btn-ghost btn-sm" id="toggleGuide" title="วิธีนำไปใช้บน Blogger">📖 คู่มือ</button>
       <button class="btn btn-ghost" id="copyXml"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>คัดลอก</button>
       <button class="btn btn-primary" id="dlXml"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>ดาวน์โหลด .xml</button>
+      <button class="btn btn-ghost btn-sm" id="dlBxb" title="บันทึกโปรเจกต์ (.bxb)">💾 .bxb</button>
       <button class="btn btn-ghost" id="dlJson" style="margin-left:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2v6h6M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>บันทึกโปรเจกต์ (.json)</button>
     </div>
   </div>
 </div>
 
 <div class="toast" id="toast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span id="toastMsg"></span></div>
+
+<!-- ===== RICH TEXT TOOLBAR ===== -->
+<div class="rtb" id="richToolbar">
+  <button class="rtb-btn" data-rtb="bold" title="Bold"><b>B</b></button>
+  <button class="rtb-btn" data-rtb="italic" title="Italic"><i style="font-style:italic">I</i></button>
+  <button class="rtb-btn" data-rtb="underline" title="Underline"><u>U</u></button>
+  <button class="rtb-btn" data-rtb="strikethrough" title="Strikethrough"><s>S</s></button>
+  <div class="rtb-sep"></div>
+  <button class="rtb-btn" data-rtb="link" title="แทรกลิงก์">🔗</button>
+  <button class="rtb-btn" data-rtb="clear" title="ล้างการจัดรูปแบบ">✕</button>
+</div>
+<div class="rtb-links" id="rtbLinks">
+  <div class="rtb-link-list" id="rtbLinkList"></div>
+  <div class="rtb-link-custom">
+    <input id="rtbCustomUrl" placeholder="พิมพ์ URL เช่น /p/about.html" autocomplete="off" spellcheck="false">
+  </div>
+</div>
+
+<!-- ===== DRAG GHOST ===== -->
+<div class="drag-ghost" id="dragGhost">
+  <span class="dg-ic" id="dragGhostIcon"></span>
+  <span id="dragGhostLabel"></span>
+</div>
+
+<!-- ===== HISTORY MODAL ===== -->
+<div class="modal" id="historyModal">
+  <div class="modal-scrim"></div>
+  <div class="modal-card" style="max-width:520px">
+    <div class="modal-head">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;color:var(--brand)"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <h3>Version History</h3>
+      <button class="icon-btn x" data-hx><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body" id="historyList" style="max-height:480px;padding:12px 0;"></div>
+  </div>
+</div>
+
+<!-- ===== COMMAND PALETTE ===== -->
+<div class="cmd-pal" id="cmdPal">
+  <div class="cmd-scrim" id="cmdScrim"></div>
+  <div class="cmd-box">
+    <div class="cmd-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input class="cmd-inp" id="cmdInp" placeholder="ค้นหาคำสั่ง หรือพิมพ์ชื่อองค์ประกอบ…" autocomplete="off" spellcheck="false">
+      <span class="cmd-esc-tag">ESC</span>
+    </div>
+    <div class="cmd-list" id="cmdList"></div>
+  </div>
+</div>
 
 <script src="assets/builder-app.js"></script>
 </body>

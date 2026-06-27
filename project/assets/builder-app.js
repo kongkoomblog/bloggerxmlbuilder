@@ -11,6 +11,49 @@
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
   function uid() { return "b" + Math.random().toString(36).slice(2, 8); }
 
+  // DOM-based sanitizer: keeps safe inline tags only (b,i,u,s,em,strong,a,br)
+  function richHTML(s) {
+    if (!s) return "";
+    try {
+      var d = document.createElement("div");
+      d.innerHTML = s;
+      var bad = d.querySelectorAll("script,style,iframe,object,embed,form");
+      for (var bi = 0; bi < bad.length; bi++) bad[bi].parentNode.removeChild(bad[bi]);
+      var all = d.querySelectorAll("*");
+      var ok = ["b","i","u","s","em","strong","a","br","span"];
+      for (var ai = all.length - 1; ai >= 0; ai--) {
+        var nd = all[ai], tn = nd.tagName.toLowerCase();
+        if (ok.indexOf(tn) < 0) {
+          var frag = document.createDocumentFragment();
+          while (nd.firstChild) frag.appendChild(nd.firstChild);
+          nd.parentNode.replaceChild(frag, nd);
+        } else {
+          for (var ci = nd.attributes.length - 1; ci >= 0; ci--) {
+            var an = nd.attributes[ci].name.toLowerCase();
+            if (!(tn === "a" && (an === "href" || an === "target" || an === "rel"))) nd.removeAttribute(nd.attributes[ci].name);
+          }
+          if (tn === "a") {
+            var hr = nd.getAttribute("href") || "";
+            if (/^(javascript|data):/i.test(hr)) nd.removeAttribute("href");
+            nd.setAttribute("target", "_blank"); nd.setAttribute("rel", "noopener noreferrer");
+          }
+        }
+      }
+      return d.innerHTML;
+    } catch (ex) { return esc(s); }
+  }
+  // Wrap textarea selection with an HTML tag
+  function wrapSel(ta, tag) {
+    var s = ta.selectionStart, e = ta.selectionEnd;
+    if (s === e) return;
+    var val = ta.value, sel = val.slice(s, e);
+    var op = "<" + tag + ">", cl = "</" + tag + ">";
+    ta.value = val.slice(0, s) + op + sel + cl + val.slice(e);
+    ta.selectionStart = s + op.length;
+    ta.selectionEnd = s + op.length + sel.length;
+    ta.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
   /* ---------- icons ---------- */
   var IC = {
     header: '<path d="M3 5h18M3 5v14M21 5v14M3 19h18"/><rect x="3" y="5" width="18" height="5" fill="currentColor" opacity=".3"/>',
@@ -27,7 +70,16 @@
     ad: '<rect x="3" y="5" width="18" height="14" rx="2" stroke-dasharray="3 3"/><path d="M8 12h8"/>',
     columns: '<rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="16" rx="1"/><rect x="17" y="4" width="4" height="16" rx="1"/>',
     about: '<circle cx="12" cy="8" r="3"/><path d="M5 21v-1a7 7 0 0114 0v1"/>',
-    cursor: '<path d="M3 3l7 18 2.5-7.5L20 11z"/>'
+    newsletter: '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
+    share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>',
+    history: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    search: '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>',
+    cursor: '<path d="M3 3l7 18 2.5-7.5L20 11z"/>',
+    darkmode: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+    aeo: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/>',
+    toc: '<path d="M3 6h.01M3 12h.01M3 18h.01"/><path d="M7 6h14"/><path d="M7 12h10"/><path d="M7 18h7"/>',
+    related: '<circle cx="9" cy="12" r="2"/><circle cx="17" cy="6" r="2"/><circle cx="17" cy="18" r="2"/><line x1="11" y1="12" x2="15" y2="12"/><line x1="15" y1="7" x2="11" y2="10.5"/><line x1="15" y1="17" x2="11" y2="13.5"/>',
+    progress: '<rect x="2" y="10" width="20" height="4" rx="2"/><rect x="2" y="10" width="11" height="4" rx="2" fill="currentColor" opacity=".4"/>'
   };
   function svg(p, w) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 2) + '" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>'; }
 
@@ -48,8 +100,21 @@
       ["cta", "Call To Action", "กล่องชวนคลิก"],
       ["image", "รูปภาพ", "Image"]
     ]],
+    ["เลย์เอาต์", [
+      ["sidebar", "Sidebar Layout", "เนื้อหา + ไซด์บาร์"],
+      ["search", "ช่องค้นหา", "Search Box"]
+    ]],
     ["ส่วนเสริม", [
-      ["ad", "ช่องโฆษณา", "AdSense Safe"]
+      ["ad", "ช่องโฆษณา", "AdSense Safe"],
+      ["newsletter", "Newsletter", "รับอีเมลสมัครสมาชิก"],
+      ["share", "Social Share", "ปุ่มแชร์โซเชียล"]
+    ]],
+    ["บทความ & UX", [
+      ["aeo", "AEO Summary Box", "สรุปสำหรับ AI / Google"],
+      ["toc", "สารบัญ (TOC)", "สร้างจาก h2/h3 อัตโนมัติ"],
+      ["related", "บทความที่เกี่ยวข้อง", "JSON Feed API"],
+      ["progress", "Progress Bar", "แถบความคืบหน้าการอ่าน"],
+      ["darkmode", "Dark Mode Toggle", "ปุ่มสลับธีมมืด/สว่าง"]
     ]]
   ];
 
@@ -72,11 +137,20 @@
       cta: { title: "พร้อมเริ่มต้นแล้วหรือยัง?", btnText: "เริ่มเลย", bg: "soft" },
       image: { alt: "คำอธิบายรูปภาพ", caption: "", ratio: "16/9" },
       ad: { slot: "ใต้ส่วนหัว", label: true },
+      newsletter: { heading: "รับข่าวสารก่อนใคร", sub: "กรอกอีเมลเพื่อรับบทความใหม่ทันที ฟรี ไม่มีสแปม", btnText: "สมัครเลย", bg: "soft" },
+      share: { label: "แชร์บทความนี้ให้เพื่อน", facebook: true, twitter: true, line: true, copy: true },
+      sidebar: { position: "right", width: "280px", showSearch: true, showCategories: true, showArchive: true, showAbout: false },
+      search: { heading: "", placeholder: "ค้นหาในบล็อก…" },
       columns: { heading: "บริการของเรา", cols: 3, items: [
         { icon: "★", title: "คุณภาพสูง", text: "เนื้อหาคัดสรรอย่างพิถีพิถัน เชื่อถือได้" },
         { icon: "⚡", title: "รวดเร็ว", text: "โหลดไว ใช้งานลื่นทุกอุปกรณ์" },
         { icon: "♥", title: "ใส่ใจ", text: "ดูแลผู้อ่านทุกคนด้วยหัวใจ" }
-      ] }
+      ] },
+      darkmode: { position: "bottom-right" },
+      aeo: { title: "สรุปบทความ", style: "card" },
+      toc: { title: "สารบัญ", maxDepth: "3", numbered: true },
+      related: { heading: "บทความที่เกี่ยวข้อง", count: 4, columns: 2, showImage: true },
+      progress: { height: 3, color: "primary" }
     };
     return JSON.parse(JSON.stringify(d[type] || {}));
   }
@@ -95,7 +169,9 @@
     { id: "school", cat: "การศึกษา", name: "School", desc: "โรงเรียน/สถาบัน", c: ["#2563eb", "#06b6d4"], blocks: ["header", "hero", "about", "postgrid", "footer"], design: { primary: "#2563eb", accent: "#06b6d4", font: "sans", radius: 12 } },
     { id: "course", cat: "การศึกษา", name: "Online Course", desc: "คอร์สเรียนออนไลน์", c: ["#9333ea", "#6366f1"], blocks: ["header", "hero", "featured", "cta", "footer"], design: { primary: "#9333ea", accent: "#6366f1", font: "sans", radius: 14 } },
     { id: "review", cat: "Affiliate", name: "Product Review", desc: "รีวิวสินค้า Affiliate", c: ["#ea580c", "#f59e0b"], blocks: ["header", "hero", "postgrid", "about", "footer"], design: { primary: "#ea580c", accent: "#f59e0b", font: "sans", radius: 10 } },
-    { id: "deals", cat: "Affiliate", name: "Deals & Coupon", desc: "ดีล/คูปอง โปรโมชัน", c: ["#16a34a", "#22c55e"], blocks: ["header", "featured", "postgrid", "cta", "footer"], design: { primary: "#16a34a", accent: "#22c55e", font: "sans", radius: 12 } }
+    { id: "deals", cat: "Affiliate", name: "Deals & Coupon", desc: "ดีล/คูปอง โปรโมชัน", c: ["#16a34a", "#22c55e"], blocks: ["header", "featured", "postgrid", "cta", "footer"], design: { primary: "#16a34a", accent: "#22c55e", font: "sans", radius: 12 } },
+    { id: "sidebar-blog", cat: "บล็อก", name: "Classic + Sidebar", desc: "2 คอลัมน์ เนื้อหา + ไซด์บาร์", c: ["#6366f1", "#8b5cf6"], blocks: ["header", "hero", "postgrid", "sidebar", "footer"], design: { primary: "#6366f1", accent: "#8b5cf6", font: "sans", radius: 10 } },
+    { id: "sidebar-news", cat: "ข่าว/นิตยสาร", name: "News + Sidebar", desc: "พอร์ทัลข่าวพร้อมไซด์บาร์", c: ["#0f172a", "#475569"], blocks: ["header", "featured", "postlist", "sidebar", "footer"], design: { primary: "#0f172a", accent: "#dc2626", font: "sans", radius: 4 } }
   ];
 
   /* ---------- STATE ---------- */
@@ -111,7 +187,7 @@
       lang: "th",
       design: design || { primary: "#6366f1", accent: "#8b5cf6", font: "sans", radius: 12 },
       seo: { title: "", desc: "", blogTitle: "MyBlog", labelIndex: false, schema: true, og: true,
-             orgType: "Organization", logoUrl: "", siteUrl: "", sameAs: "" },
+             orgType: "Organization", logoUrl: "", siteUrl: "", sameAs: "", schemaSoftwareApp: false },
       blocks: []
     };
   }
@@ -127,7 +203,7 @@
     clearTimeout(saveT);
     saveT = setTimeout(function () { d.classList.remove("saving"); d.querySelector("span").textContent = tr("บันทึกแล้ว"); }, 500);
   }
-  function pushHistory() { HISTORY.push(JSON.stringify(S.blocks)); if (HISTORY.length > 40) HISTORY.shift(); }
+  function pushHistory() { HISTORY.push({ ts: Date.now(), snap: JSON.stringify(S.blocks) }); if (HISTORY.length > 40) HISTORY.shift(); }
   function commit() { pushHistory(); renderCanvas(); renderSeo(); if (window.__bxbRenderLayers && $("#layersView") && $("#layersView").style.display !== "none") window.__bxbRenderLayers(); save(); }
 
   /* ---------- BLOCK RENDER (canvas) ---------- */
@@ -181,9 +257,9 @@
       case "about":
         return '<div style="padding:56px 32px;background:#f7f8fc;display:flex;gap:24px;align-items:center;max-width:820px;margin:0 auto">' +
           (p.showAvatar ? '<div style="width:84px;height:84px;border-radius:50%;background:linear-gradient(120deg,' + pr + ',' + ac + ');flex:none"></div>' : "") +
-          '<div><div style="font-size:13px;color:' + pr + ';font-weight:700;text-transform:uppercase;letter-spacing:.08em">เกี่ยวกับ</div><h3 style="font-family:' + fontStack(d.font) + ';font-size:24px;margin:6px 0 8px">' + esc(p.name) + "</h3><p style=\"color:#4a5063;font-size:15px;line-height:1.65;margin:0\">" + esc(p.bio) + "</p></div></div>";
+          '<div><div style="font-size:13px;color:' + pr + ';font-weight:700;text-transform:uppercase;letter-spacing:.08em">เกี่ยวกับ</div><h3 style="font-family:' + fontStack(d.font) + ';font-size:24px;margin:6px 0 8px">' + esc(p.name) + '</h3><p style="color:#4a5063;font-size:15px;line-height:1.65;margin:0">' + richHTML(p.bio) + '</p></div></div>';
       case "text":
-        return '<div style="padding:40px 32px;text-align:' + p.align + ';max-width:760px;margin:0 auto"><h2 style="font-family:' + fontStack(d.font) + ';font-size:28px;margin:0 0 12px">' + esc(p.heading) + '</h2><p style="color:#4a5063;font-size:16px;line-height:1.7;margin:0">' + esc(p.body) + "</p></div>";
+        return '<div style="padding:40px 32px;text-align:' + p.align + ';max-width:760px;margin:0 auto"><h2 style="font-family:' + fontStack(d.font) + ';font-size:28px;margin:0 0 12px">' + esc(p.heading) + '</h2><p style="color:#4a5063;font-size:16px;line-height:1.7;margin:0">' + richHTML(p.body) + '</p></div>';
       case "columns":
         var cn = p.cols || 3, its = (p.items || []).slice(0, cn);
         var colsCols = VIEW === "mobile" ? "1fr" : "repeat(" + cn + ",1fr)";
@@ -197,6 +273,83 @@
         return '<div style="padding:24px 32px"><div style="aspect-ratio:' + (p.ratio || "16/9") + ';background:#e8eaf2;border-radius:' + r + ';display:grid;place-items:center;color:#9aa">🖼 ' + esc(p.alt) + "</div>" + (p.caption ? '<p style="text-align:center;color:#9aa;font-size:13px;margin-top:8px">' + esc(p.caption) + "</p>" : "") + "</div>";
       case "ad":
         return '<div style="padding:16px 32px"><div style="min-height:90px;border:1px dashed #ccd;border-radius:8px;display:grid;place-items:center;color:#aab;font-size:13px;background:#fafbff">ช่องโฆษณา — ' + esc(p.slot) + (p.label ? ' <span style="margin-left:6px;font-size:11px;color:#bbc">(โฆษณา)</span>' : "") + "</div></div>";
+      case "newsletter":
+        var nlbg = p.bg === "gradient" ? "linear-gradient(120deg," + pr + "," + ac + ")" : p.bg === "dark" ? "#0f172a" : "linear-gradient(120deg," + pr + "0d," + ac + "1a)";
+        var nlfg = p.bg === "dark" ? "#fff" : "#1e2333";
+        var nlbtnbg = (p.bg === "soft" || !p.bg) ? pr : "#fff";
+        var nlbtnfg = (p.bg === "soft" || !p.bg) ? "#fff" : pr;
+        return '<div style="padding:52px 32px;text-align:center;background:' + nlbg + '">'
+          + '<h2 style="font-family:' + fontStack(d.font) + ';font-size:26px;margin:0;color:' + nlfg + '">' + esc(p.heading) + '</h2>'
+          + '<p style="font-size:15px;margin:12px auto 0;max-width:440px;color:' + (p.bg === "dark" ? "rgba(255,255,255,.75)" : "#4a5063") + '">' + esc(p.sub) + '</p>'
+          + '<div style="display:flex;gap:10px;max-width:400px;margin:22px auto 0;flex-wrap:wrap;justify-content:center">'
+          + '<input type="email" placeholder="อีเมลของคุณ" style="flex:1;min-width:180px;padding:12px 16px;border:1px solid ' + (p.bg === "dark" ? "rgba(255,255,255,.2)" : "#dde") + ';border-radius:' + r + ';font-size:14px;background:' + (p.bg === "dark" ? "rgba(255,255,255,.1)" : "#fff") + ';color:' + nlfg + '">'
+          + '<button style="background:' + nlbtnbg + ';color:' + nlbtnfg + ';padding:12px 20px;border:0;border-radius:' + r + ';font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap">' + esc(p.btnText) + '</button>'
+          + '</div></div>';
+      case "share":
+        var shs = [
+          p.facebook && { label: "Facebook", color: "#1877f2" },
+          p.twitter && { label: "X (Twitter)", color: "#000" },
+          p.line && { label: "LINE", color: "#06c755" },
+          p.copy && { label: "คัดลอกลิงก์", color: "#6366f1" }
+        ].filter(Boolean);
+        return '<div style="padding:28px 32px;text-align:center">'
+          + (p.label ? '<div style="font-size:13px;color:#828aa0;margin-bottom:14px">' + esc(p.label) + '</div>' : '')
+          + '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">'
+          + shs.map(function (s) { return '<button style="padding:10px 18px;background:' + s.color + ';color:#fff;border:0;border-radius:' + r + ';font-weight:600;font-size:13px;cursor:pointer">' + s.label + '</button>'; }).join("")
+          + '</div></div>';
+      case "sidebar":
+        var sbWid = p.width || "280px";
+        var sbGridCols = p.position === "left" ? sbWid + " 1fr" : "1fr " + sbWid;
+        var sbMain = '<div style="display:flex;flex-direction:column;gap:10px">'
+          + [0,1,2].map(function() { return '<div style="border:1px solid #eef;border-radius:' + r + ';padding:14px;background:#fff"><div style="height:8px;width:72%;background:#e8eaf2;border-radius:3px;margin-bottom:8px"></div><div style="height:6px;width:90%;background:#f1f2f9;border-radius:3px;margin-bottom:5px"></div><div style="height:6px;width:55%;background:#f1f2f9;border-radius:3px"></div></div>'; }).join("")
+          + '</div>';
+        var sbAside = '<div style="display:flex;flex-direction:column;gap:10px">'
+          + (p.showSearch ? '<div style="border:1px solid #e8eaf2;padding:10px 12px;border-radius:' + r + ';background:#f7f8fc;font-size:12.5px;color:#aab;display:flex;gap:8px;align-items:center">' + svg(IC.search, 2) + ' ค้นหา…</div>' : '')
+          + (p.showCategories ? '<div style="border:1px solid #e8eaf2;padding:12px;border-radius:' + r + ';background:#f7f8fc"><div style="font-size:11px;font-weight:700;color:#1e2333;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">ป้ายกำกับ</div><div style="display:flex;flex-wrap:wrap;gap:5px">' + ["SEO","บทความ","แนะนำ"].map(function(l){return '<span style="background:' + pr + '22;color:' + pr + ';font-size:11px;padding:2px 9px;border-radius:20px">' + l + '</span>';}).join("") + '</div></div>' : '')
+          + (p.showArchive ? '<div style="border:1px solid #e8eaf2;padding:12px;border-radius:' + r + ';background:#f7f8fc"><div style="font-size:11px;font-weight:700;color:#1e2333;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">คลังบทความ</div><div style="font-size:12.5px;color:#828aa0;display:flex;flex-direction:column;gap:5px"><span>มกราคม 2026 (12)</span><span>ธันวาคม 2025 (8)</span><span>พฤศจิกายน 2025 (5)</span></div></div>' : '')
+          + (p.showAbout ? '<div style="border:1px solid #e8eaf2;padding:12px;border-radius:' + r + ';background:#f7f8fc;display:flex;gap:10px;align-items:center"><div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(120deg,' + pr + ',' + ac + ');flex:none"></div><div style="font-size:12.5px;color:#4a5063">เกี่ยวกับผู้เขียน</div></div>' : '')
+          + '</div>';
+        return '<div style="padding:20px 32px;background:#f7f8fc"><div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#aab;margin-bottom:12px;display:flex;align-items:center;gap:8px">' + svg(IC.sidebar, 1.5) + ' Sidebar Layout — ' + (p.position === "left" ? "ไซด์บาร์ซ้าย" : "ไซด์บาร์ขวา") + '</div>'
+          + '<div style="display:grid;grid-template-columns:' + sbGridCols + ';gap:16px">'
+          + (p.position === "left" ? sbAside + sbMain : sbMain + sbAside)
+          + '</div></div>';
+      case "search":
+        return '<div style="padding:16px 32px">'
+          + (p.heading ? '<h3 style="font-family:' + fontStack(d.font) + ';font-size:16px;color:#1e2333;margin-bottom:10px">' + esc(p.heading) + '</h3>' : '')
+          + '<div style="display:flex;gap:0;max-width:420px"><input type="text" placeholder="' + esc(p.placeholder || "ค้นหาในบล็อก…") + '" style="flex:1;padding:12px 16px;border:1px solid #dde;border-radius:' + r + ' 0 0 ' + r + ';font-size:14px;color:#1e2333;background:#fff;outline:none"><button style="padding:12px 16px;background:' + pr + ';color:#fff;border:0;border-radius:0 ' + r + ' ' + r + ' 0;cursor:pointer;font-size:15px">🔍</button></div></div>';
+      case "darkmode":
+        var dmPos = p.position || "bottom-right";
+        var dmPosStyle = (dmPos.indexOf("bottom") >= 0 ? "bottom:12px" : "top:12px") + ";" + (dmPos.indexOf("right") >= 0 ? "right:12px" : "left:12px");
+        return '<div style="position:relative;padding:28px 32px;background:#f7f8fc;min-height:80px;display:flex;align-items:center;justify-content:center"><div style="text-align:center;color:#aab;font-size:13px"><b style="color:#828aa0">Dark Mode Toggle</b><br><small>ปุ่มลอยตัว — ติดขอบจอทุกหน้า</small></div>'
+          + '<div style="position:absolute;' + dmPosStyle + ';width:40px;height:40px;border-radius:50%;background:' + pr + ';color:#fff;display:grid;place-items:center;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,.2)">🌙</div></div>';
+      case "aeo":
+        var aeoSt = p.style === "highlight"
+          ? "border-left:4px solid " + pr + ";background:" + pr + "0d;padding:16px 20px;border-radius:0 " + r + " " + r + " 0"
+          : p.style === "minimal" ? "border-top:2px solid " + pr + ";border-bottom:1px solid #eef;padding:12px 0"
+          : "border:1px solid " + pr + "33;background:" + pr + "08;padding:16px 20px;border-radius:" + r;
+        return '<div style="padding:16px 32px"><aside style="' + aeoSt + '">'
+          + '<div style="font-size:11px;font-weight:700;color:' + pr + ';text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px">&#128214; ' + esc(p.title || "สรุปบทความ") + '</div>'
+          + '<p style="font-size:13.5px;color:#4a5063;margin:0;line-height:1.65">สรุปเนื้อหาบทความอัตโนมัติจาก snippet — เพิ่มโอกาสให้ Google และ AI ดึงข้อมูลนี้แสดงในผลการค้นหา</p>'
+          + '</aside></div>';
+      case "toc":
+        return '<div style="padding:16px 32px"><nav style="padding:14px 16px;background:#f7f8fc;border-radius:' + r + ';border:1px solid #eef">'
+          + '<div style="font-size:11px;font-weight:700;color:' + pr + ';text-transform:uppercase;letter-spacing:.07em;margin-bottom:9px">&#128209; ' + esc(p.title || "สารบัญ") + '</div>'
+          + '<ol style="padding-left:18px;margin:0;font-size:13px;color:#4a5063;line-height:1.9">'
+          + '<li>หัวข้อที่ 1 (h2)</li>'
+          + '<li>หัวข้อที่ 2<ol style="padding-left:14px;margin:0"><li style="font-size:12px">หัวข้อย่อย (h3)</li></ol></li>'
+          + '<li>หัวข้อที่ 3</li>'
+          + '</ol></nav></div>';
+      case "related":
+        var rCols = p.columns || 2, rCards = "";
+        for (var ri = 0; ri < Math.min(p.count || 4, rCols * 2); ri++) rCards += postCard(p.showImage, false, d, ac);
+        return section(p.heading || "บทความที่เกี่ยวข้อง", d, '<div style="display:grid;grid-template-columns:repeat(' + rCols + ',1fr);gap:16px">' + rCards + '</div>');
+      case "progress":
+        var pClrPrev = p.color === "accent" ? ac : p.color === "gradient" ? "linear-gradient(90deg," + pr + "," + ac + ")" : pr;
+        return '<div style="padding:20px 32px"><div style="background:#f7f8fc;border-radius:' + r + ';padding:16px">'
+          + '<div style="width:100%;height:' + (p.height || 3) + 'px;background:#e8eaf2;border-radius:9px;overflow:hidden;margin-bottom:10px">'
+          + '<div style="width:55%;height:100%;background:' + pClrPrev + ';border-radius:9px"></div></div>'
+          + '<div style="font-size:12px;color:#aab;text-align:center">Reading Progress Bar — ติดด้านบนทุกหน้า</div>'
+          + '</div></div>';
       case "footer":
         var fcols = "";
         for (var k = 0; k < (p.columns || 4); k++) {
@@ -234,12 +387,14 @@
       var w = el("div", { class: "blk" + (b.id === SEL ? " sel" : ""), "data-id": b.id });
       var tag = el("div", { class: "blk-tag" });
       tag.innerHTML = '<span>' + blkLabel(b.type) + "</span>";
-      var up = el("button", { title: "ขึ้น" }, "↑"), dn = el("button", { title: "ลง" }, "↓"), del = el("button", { title: "ลบ" }, "✕");
+      var up = el("button", { title: "ขึ้น" }, "↑"), dn = el("button", { title: "ลง" }, "↓"), dup = el("button", { title: "ทำซ้ำ" }, "⧉"), del = el("button", { title: "ลบ" }, "✕");
       up.onclick = function (e) { e.stopPropagation(); move(b.id, -1); };
       dn.onclick = function (e) { e.stopPropagation(); move(b.id, 1); };
+      dup.onclick = function (e) { e.stopPropagation(); duplicate(b.id); };
       del.onclick = function (e) { e.stopPropagation(); removeBlock(b.id); };
-      tag.appendChild(up); tag.appendChild(dn); tag.appendChild(del);
+      tag.appendChild(up); tag.appendChild(dn); tag.appendChild(dup); tag.appendChild(del);
       w.appendChild(tag);
+      w.appendChild(el("div", { class: "blk-insp" }, blkLabel(b.type)));
       var body = el("div"); body.innerHTML = renderBlockInner(b); w.appendChild(body);
       w.onclick = function (e) { e.stopPropagation(); select(b.id); };
       f.appendChild(w);
@@ -248,7 +403,7 @@
   }
   function dz(idx) { var d = el("div", { class: "dropzone", "data-idx": idx }); return d; }
   function blkLabel(t) {
-    var m = { header: "ส่วนหัว", hero: "Hero", footer: "ส่วนท้าย", postgrid: "ตารางบทความ", postlist: "รายการบทความ", featured: "บทความเด่น", about: "เกี่ยวกับ", text: "ข้อความ", cta: "CTA", image: "รูปภาพ", ad: "โฆษณา" };
+    var m = { header: "ส่วนหัว", hero: "Hero", footer: "ส่วนท้าย", postgrid: "ตารางบทความ", postlist: "รายการบทความ", featured: "บทความเด่น", about: "เกี่ยวกับ", text: "ข้อความ", cta: "CTA", image: "รูปภาพ", ad: "โฆษณา", newsletter: "Newsletter", share: "Social Share", columns: "คอลัมน์", sidebar: "Sidebar", search: "ค้นหา", darkmode: "Dark Mode Toggle", aeo: "AEO Summary Box", toc: "สารบัญ (TOC)", related: "บทความที่เกี่ยวข้อง", progress: "Progress Bar" };
     return m[t] || t;
   }
 
@@ -264,6 +419,16 @@
     if (SEL === id) SEL = null;
     commit(); renderProps();
   }
+  function duplicate(id) {
+    var i = S.blocks.findIndex(function (b) { return b.id === id; });
+    if (i < 0) return;
+    var clone = JSON.parse(JSON.stringify(S.blocks[i]));
+    clone.id = uid();
+    S.blocks.splice(i + 1, 0, clone);
+    SEL = clone.id;
+    commit(); renderProps();
+    toast("ทำซ้ำ " + blkLabel(clone.type) + " แล้ว");
+  }
   function move(id, dir) {
     var i = S.blocks.findIndex(function (b) { return b.id === id; });
     var j = i + dir; if (j < 0 || j >= S.blocks.length) return;
@@ -274,11 +439,27 @@
   /* ---------- drag & drop ---------- */
   var dragType = null, dragSort = null;
   var isTouch = window.matchMedia("(max-width:1000px)").matches || ("ontouchstart" in window);
+  function createDragGhost(type) {
+    var g = $("#dragGhost"); if (!g) return;
+    var iconEl = $("#dragGhostIcon"); if (iconEl) iconEl.innerHTML = svg(IC[type] || IC.text);
+    var lblEl = $("#dragGhostLabel"); if (lblEl) lblEl.textContent = blkLabel(type);
+    g.classList.add("show");
+  }
+  function moveDragGhost(e) {
+    var g = $("#dragGhost"); if (!g || !g.classList.contains("show")) return;
+    g.style.left = (e.clientX + 16) + "px";
+    g.style.top = (e.clientY - 18) + "px";
+  }
+  function removeDragGhost() {
+    var g = $("#dragGhost"); if (g) g.classList.remove("show");
+  }
+  document.addEventListener("dragover", moveDragGhost);
+
   function setupLibDrag() {
     $$(".lib-item").forEach(function (it) {
       it.draggable = true;
-      it.addEventListener("dragstart", function (e) { dragType = it.dataset.type; dragSort = null; it.classList.add("dragging"); e.dataTransfer.effectAllowed = "copy"; });
-      it.addEventListener("dragend", function () { it.classList.remove("dragging"); clearDz(); });
+      it.addEventListener("dragstart", function (e) { dragType = it.dataset.type; dragSort = null; it.classList.add("dragging"); e.dataTransfer.effectAllowed = "copy"; createDragGhost(dragType); });
+      it.addEventListener("dragend", function () { it.classList.remove("dragging"); clearDz(); removeDragGhost(); });
       // TAP-TO-ADD: on touch/mobile, tapping an element appends it to the canvas
       it.addEventListener("click", function () {
         if (!window.matchMedia("(max-width:1000px)").matches) return;
@@ -337,7 +518,7 @@
     if (hm) hm.addEventListener("change", function () { v.hideMobile = hm.checked; renderCanvas(); save(); });
   }
   function txt(key, label, val, hint) { return '<div class="field"><label>' + label + '</label><input class="inp" data-k="' + key + '" value="' + esc(val) + '">' + (hint ? '<div class="hint">' + hint + "</div>" : "") + "</div>"; }
-  function area(key, label, val) { return '<div class="field"><label>' + label + '</label><textarea class="ta" data-k="' + key + '">' + esc(val) + "</textarea></div>"; }
+  function area(key, label, val, rich) { return '<div class="field"><label>' + label + (rich ? ' <span style="font-size:10px;font-weight:400;color:var(--brand-2);opacity:.8">B I U 🔗</span>' : '') + '</label><textarea class="ta" data-k="' + key + '"' + (rich ? ' data-rich="1"' : '') + '>' + esc(val) + "</textarea></div>"; }
   function seg(key, label, val, opts) { return '<div class="field"><label>' + label + '</label><div class="seg" data-seg="' + key + '">' + opts.map(function (o) { return '<button data-v="' + o[0] + '"' + (o[0] === val ? ' class="on"' : "") + ">" + o[1] + "</button>"; }).join("") + "</div></div>"; }
   function tog(key, label, val, sub) { return '<label class="tg"><span class="lbl">' + label + (sub ? "<small>" + sub + "</small>" : "") + '</span><input type="checkbox" data-k="' + key + '"' + (val ? " checked" : "") + '><span class="sw-tg"></span></label>'; }
   function num(key, label, val, mn, mx) { return '<div class="field"><label>' + label + ' — ' + val + '</label><input class="inp" type="range" min="' + mn + '" max="' + mx + '" value="' + val + '" data-k="' + key + '" data-num="1"></div>'; }
@@ -363,12 +544,31 @@
       case "postgrid": return txt("heading", "หัวข้อส่วน", p.heading) + num("columns", "จำนวนคอลัมน์", p.columns, 2, 4) + num("count", "จำนวนบทความ", p.count, 2, 12) + tog("showImage", "แสดงรูปภาพ", p.showImage) + tog("showExcerpt", "แสดงคำโปรย", p.showExcerpt);
       case "postlist": return txt("heading", "หัวข้อส่วน", p.heading) + num("count", "จำนวนบทความ", p.count, 2, 10) + tog("showImage", "แสดงรูปภาพ", p.showImage);
       case "featured": return txt("heading", "หัวข้อส่วน", p.heading);
-      case "about": return txt("name", "ชื่อ/ผู้เขียน", p.name) + area("bio", "ประวัติ (E-E-A-T)", p.bio) + tog("showAvatar", "แสดงรูปโปรไฟล์", p.showAvatar);
-      case "text": return txt("heading", "หัวข้อ", p.heading) + area("body", "เนื้อหา", p.body) + seg("align", "จัดวาง", p.align, [["left", "ซ้าย"], ["center", "กลาง"]]);
+      case "about": return txt("name", "ชื่อ/ผู้เขียน", p.name) + area("bio", "ประวัติ (E-E-A-T)", p.bio, true) + tog("showAvatar", "แสดงรูปโปรไฟล์", p.showAvatar);
+      case "text": return txt("heading", "หัวข้อ", p.heading) + area("body", "เนื้อหา", p.body, true) + seg("align", "จัดวาง", p.align, [["left", "ซ้าย"], ["center", "กลาง"]]);
       case "columns": return columnsFields(b, p);
       case "cta": return txt("title", "หัวข้อ", p.title) + txt("btnText", "ข้อความปุ่ม", p.btnText) + seg("bg", "พื้นหลัง", p.bg, [["gradient", "ไล่สี"], ["soft", "อ่อน"]]);
       case "image": return txt("alt", "ข้อความ ALT (SEO)", p.alt, "สำคัญต่อ SEO และการเข้าถึง") + txt("caption", "คำบรรยายใต้ภาพ", p.caption) + seg("ratio", "สัดส่วน", p.ratio, [["16/9", "16:9"], ["4/3", "4:3"], ["1/1", "1:1"]]);
       case "ad": return seg("slot", "ตำแหน่ง", p.slot, [["ใต้ส่วนหัว", "บน"], ["ในบทความ", "กลาง"], ["ไซด์บาร์", "ข้าง"]]) + tog("label", 'แสดงป้าย "โฆษณา"', p.label, "แนะนำตามนโยบาย AdSense");
+      case "newsletter": return txt("heading", "หัวข้อ", p.heading) + area("sub", "คำโปรย", p.sub) + txt("btnText", "ข้อความปุ่ม", p.btnText) + seg("bg", "พื้นหลัง", p.bg || "soft", [["soft", "อ่อน"], ["gradient", "ไล่สี"], ["dark", "เข้ม"]]);
+      case "share": return txt("label", "ข้อความนำ", p.label) + tog("facebook", "Facebook", p.facebook) + tog("twitter", "X (Twitter)", p.twitter) + tog("line", "LINE", p.line) + tog("copy", "คัดลอกลิงก์", p.copy);
+      case "sidebar": return seg("position", "ตำแหน่ง Sidebar", p.position || "right", [["right", "ขวา ◨"], ["left", "◧ ซ้าย"]]) + txt("width", "ความกว้าง Sidebar", p.width || "280px") + tog("showSearch", "ช่องค้นหา", p.showSearch) + tog("showCategories", "ป้ายกำกับ / หมวดหมู่", p.showCategories) + tog("showArchive", "คลังบทความ", p.showArchive) + tog("showAbout", "เกี่ยวกับผู้เขียน", p.showAbout) + '<div class="note info">' + svg('<circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/>', 2) + '<div>ใส่ Sidebar ไว้ใกล้กลุ่มบทความ (postgrid/postlist/featured) — ระบบจะวาง Sidebar ข้างเนื้อหาหลักอัตโนมัติตอน Export XML</div></div>';
+      case "search": return txt("heading", "หัวข้อ (เว้นว่าง = ซ่อน)", p.heading || "") + txt("placeholder", "Placeholder", p.placeholder || "ค้นหาในบล็อก…");
+      case "darkmode": return seg("position", "ตำแหน่งปุ่ม", p.position || "bottom-right", [["bottom-right", "ขวาล่าง"], ["bottom-left", "ซ้ายล่าง"], ["top-right", "ขวาบน"], ["top-left", "ซ้ายบน"]])
+        + '<div class="note info">' + svg('<circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/>', 2) + '<div>ปุ่ม Dark Mode จดจำการตั้งค่าใน localStorage และรองรับ <code>prefers-color-scheme</code> อัตโนมัติ</div></div>';
+      case "aeo": return txt("title", "หัวข้อกล่องสรุป", p.title || "สรุปบทความ")
+        + seg("style", "สไตล์", p.style || "card", [["card", "การ์ด"], ["highlight", "ไฮไลท์"], ["minimal", "เรียบ"]])
+        + '<div class="note ok">' + svg('<path d="M20 6L9 17l-5-5"/>', 2.5) + '<div>ใช้ <code>.qt-aeo-summary</code> ซึ่งเชื่อมกับ SpeakableSpecification ใน Schema — ช่วยให้ Google Assistant และ AI อ่านสรุปบทความได้</div></div>';
+      case "toc": return txt("title", "หัวข้อสารบัญ", p.title || "สารบัญ")
+        + seg("maxDepth", "ความลึก heading", p.maxDepth || "3", [["2", "h2 เท่านั้น"], ["3", "h2 + h3"]])
+        + tog("numbered", "แสดงลำดับตัวเลข", p.numbered !== false);
+      case "related": return txt("heading", "หัวข้อส่วน", p.heading || "บทความที่เกี่ยวข้อง")
+        + num("count", "จำนวนบทความ", p.count || 4, 2, 6)
+        + num("columns", "จำนวนคอลัมน์", p.columns || 2, 1, 3)
+        + tog("showImage", "แสดงรูปภาพ", p.showImage !== false)
+        + '<div class="note info">' + svg('<circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/>', 2) + '<div>ดึงบทความผ่าน Blogger JSON Feed API ตามป้ายกำกับแรกของโพสต์ — ทำงานบนหน้าบทความเท่านั้น</div></div>';
+      case "progress": return seg("color", "สีแถบ", p.color || "primary", [["primary", "สีหลัก"], ["accent", "สีเน้น"], ["gradient", "ไล่สี"]])
+        + num("height", "ความสูง (px)", p.height || 3, 2, 6);
     }
     return "";
   }
@@ -410,23 +610,65 @@
   function renderSeo() {
     var c = $("#rtSeo"), seo = S && S.seo;
     if (!seo) { if (c) c.innerHTML = ""; return; }
-    var sc = seoScore();
-    c.innerHTML =
-      '<div class="seo-score-box"><div class="seo-ring" style="background:conic-gradient(' + sc.color + ' ' + sc.pct + '%, var(--surface-2) 0)"><i style="color:' + sc.color + '">' + sc.score + "</i></div><div><div style=\"font-family:var(--fd);font-weight:600;font-size:15px\">คะแนน SEO</div><div style=\"font-size:12px;color:var(--ink-3);margin-top:2px\">" + sc.label + "</div></div></div>" +
-      '<div class="seo-checks">' + sc.checks.map(function (ck) { return '<div class="seo-chk ' + (ck[0] ? "pass" : "fail") + '"><span class="mk">' + svg(ck[0] ? '<path d="M20 6L9 17l-5-5"/>' : '<path d="M12 9v4M12 17h.01"/>', 2.5) + "</span>" + ck[1] + "</div>"; }).join("") + "</div>" +
-      '<div class="sec-divider"></div>' +
-      txt2("blogTitle", "ชื่อบล็อก", seo.blogTitle) +
-      txt2("title", "Title (เว้นว่าง = ใช้ชื่อบล็อก)", seo.title) +
-      area2("desc", "Meta description", seo.desc, (seo.desc || "").length + "/160 ตัวอักษร") +
-      '<div class="sec-divider"></div>' +
-      '<div class="sec-title">ป้ายกำกับ (Labels)</div>' +
-      tog2("labelIndex", "อนุญาตให้ทำดัชนีหน้าป้ายกำกับ", seo.labelIndex, "ให้ Google เก็บหน้า Label เป็นหน้าหมวดหมู่") +
-      labelNote(seo.labelIndex) +
-      '<div class="sec-divider"></div>' +
-      tog2("schema", "ใส่ Schema (JSON-LD) อัตโนมัติ", seo.schema, "Organization, WebSite, BlogPosting, Breadcrumb") +
-      (seo.schema ? googleBox(seo) : "") +
-      tog2("og", "Open Graph + Twitter Card", seo.og, "การ์ดแชร์สวยบน Facebook / LINE / X");
+    var a = seoAudit();
+
+    // Overall ring + category bars
+    var topHTML = '<div class="seo-score-box">'
+      + '<div class="seo-ring" style="background:conic-gradient(' + a.color + ' ' + a.overall + '%, var(--surface-2) 0)">'
+      + '<i style="color:' + a.color + '">' + a.overall + '</i></div>'
+      + '<div><div style="font-family:var(--fd);font-weight:600;font-size:15px">SEO Score</div>'
+      + '<div style="font-size:12px;color:var(--ink-3);margin-top:3px">' + a.label + '</div></div></div>'
+      + '<div class="seo-cats">' + a.cats.map(function (cat) {
+          return '<div class="seo-cat">'
+            + '<div class="cl">' + esc(cat.label) + '</div>'
+            + '<div class="cb"><div class="cf" style="width:' + cat.score + '%;background:' + cat.color + '"></div></div>'
+            + '<div class="cv" style="color:' + cat.color + '">' + cat.score + '</div>'
+            + '</div>';
+        }).join("") + '</div>';
+
+    // Accordion checks per category
+    var detailHTML = '<div class="sec-divider"></div>';
+    a.cats.forEach(function (cat) {
+      detailHTML += '<div class="sec-title collapsed" style="justify-content:space-between">'
+        + '<span style="display:inline-flex;align-items:center;gap:7px">'
+        + '<span style="width:8px;height:8px;border-radius:50%;background:' + cat.color + ';display:inline-block;flex:none"></span>'
+        + esc(cat.label) + '</span>'
+        + '<span style="font-size:11.5px;font-weight:700;color:' + cat.color + ';margin-right:4px">'
+        + cat.passCount + '/' + cat.checks.length + '</span></div>';
+      detailHTML += '<div class="seo-checks">';
+      cat.checks.forEach(function (ck) {
+        var cls = ck.ok ? "info" : (ck.pass ? "pass" : "fail");
+        var icon = ck.pass ? '<path d="M20 6L9 17l-5-5"/>' : '<path d="M12 9v4M12 17h.01"/>';
+        detailHTML += '<div class="seo-chk ' + cls + '">'
+          + '<span class="mk">' + svg(icon, 2.5) + '</span>'
+          + '<div>' + esc(ck.label) + (ck.tip ? '<div class="seo-chk-tip">' + esc(ck.tip) + '</div>' : '') + '</div>'
+          + '</div>';
+      });
+      detailHTML += '</div>';
+    });
+
+    c.innerHTML = topHTML + detailHTML + '<div class="sec-divider"></div>'
+      + '<div class="sec-title collapsed">ตัวอย่างผลการค้นหา (SERP Preview)</div>'
+      + serpPreviewHTML(seo)
+      + '<div class="sec-divider"></div>'
+      + txt2("blogTitle", "ชื่อบล็อก", seo.blogTitle)
+      + txt2("title", "Title (เว้นว่าง = ใช้ชื่อบล็อก)", seo.title)
+      + area2("desc", "Meta description", seo.desc, (seo.desc || "").length + "/160 ตัวอักษร")
+      + '<div class="sec-divider"></div>'
+      + '<div class="sec-title">ป้ายกำกับ (Labels)</div>'
+      + tog2("labelIndex", "อนุญาตให้ทำดัชนีหน้าป้ายกำกับ", seo.labelIndex, "ให้ Google เก็บหน้า Label เป็นหน้าหมวดหมู่")
+      + labelNote(seo.labelIndex)
+      + '<div class="sec-divider"></div>'
+      + tog2("schema", "ใส่ Schema (JSON-LD) อัตโนมัติ", seo.schema, "Organization, WebSite, WebPage, BlogPosting, BreadcrumbList")
+      + (seo.schema ? googleBox(seo) : "")
+      + tog2("og", "Open Graph + Twitter Card", seo.og, "การ์ดแชร์สวยบน Facebook / LINE / X")
+      + (seo.og ? socialPreviewHTML(seo) : "");
+
     bindSeo(c);
+    $$(".sec-title.collapsed", c).forEach(function (st) {
+      var n = st.nextElementSibling;
+      while (n && !n.classList.contains("sec-title")) { n.classList.add("acc-hidden"); n = n.nextElementSibling; }
+    });
     if (window.__bxbAccordion) window.__bxbAccordion(c);
     if (BL === "en") translateChrome();
   }
@@ -443,15 +685,70 @@
       + txt2("siteUrl", "URL เว็บไซต์", seo.siteUrl)
       + txt2("logoUrl", "URL โลโก้ (แนะนำ 512×512)", seo.logoUrl)
       + area2b("sameAs", "ลิงก์โซเชียล (บรรทัดละ 1 ลิงก์)", seo.sameAs, "Facebook, X, YouTube, LINE — ช่วยให้ Google ยืนยันตัวตนเว็บ")
+      + tog2("schemaSoftwareApp", "SoftwareApplication Schema", seo.schemaSoftwareApp, "เพิ่ม schema สำหรับบล็อก/เครื่องมือซอฟต์แวร์ — ช่วยให้ AI knowledge graphs จดจำได้")
       + '<div class="note ok">' + svg('<path d="M20 6L9 17l-5-5"/>', 2.5) + '<div>ข้อมูลนี้จะถูกสร้างเป็น <b>@graph (Organization + WebSite)</b> ในส่วน head ของทุกหน้า — ตัวช่วยให้ Google เข้าใจว่าใครเป็นเจ้าของเว็บ (E-E-A-T)</div></div>';
   }
   function area2b(k, l, v, hint) { return '<div class="field"><label>' + l + '</label><textarea class="ta" data-sk="' + k + '" style="min-height:74px">' + esc(v) + "</textarea>" + (hint ? '<div class="hint">' + hint + "</div>" : "") + "</div>"; }
+  function socialPreviewHTML(seo) {
+    var title = esc(seo.title || seo.blogTitle || "ชื่อบทความ");
+    var desc = esc(seo.desc || "คำอธิบายบทความจะแสดงตรงนี้ ควรยาว 120–160 ตัวอักษรเพื่อแสดงผลครบ");
+    var domain = (seo.siteUrl || "yourblog.blogspot.com").replace(/^https?:\/\//, "").replace(/\/$/, "");
+    var shortDesc = desc.length > 120 ? desc.slice(0, 117) + "…" : desc;
+    var shortTitle = title.length > 65 ? title.slice(0, 62) + "…" : title;
+
+    var fbCard = '<div style="border-radius:9px;overflow:hidden;border:1px solid #dde3ec;background:#f0f2f5;font-family:Arial,sans-serif;margin-bottom:12px;">'
+      + '<div style="background:#e4e6ea;height:72px;display:flex;align-items:center;justify-content:center;color:#8a8d91;font-size:11px;letter-spacing:.5px">IMAGE PREVIEW (1200×630)</div>'
+      + '<div style="padding:10px 12px;background:#f0f2f5;border-top:1px solid #dde3ec;">'
+      + '<div style="font-size:10px;color:#8a8d91;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">' + esc(domain) + '</div>'
+      + '<div style="font-size:14px;font-weight:600;color:#1c1e21;line-height:1.3;margin-bottom:3px">' + shortTitle + '</div>'
+      + '<div style="font-size:13px;color:#606770;line-height:1.4">' + shortDesc + '</div>'
+      + '</div></div>';
+
+    var twCard = '<div style="border-radius:10px;overflow:hidden;border:1px solid #cfd9de;background:#fff;font-family:-apple-system,sans-serif;">'
+      + '<div style="background:#e7ecee;height:64px;display:flex;align-items:center;justify-content:center;color:#8899a6;font-size:11px">IMAGE (1200×628)</div>'
+      + '<div style="padding:10px 12px;border-top:1px solid #cfd9de;">'
+      + '<div style="font-size:13px;font-weight:700;color:#0f1419;line-height:1.3;margin-bottom:3px">' + shortTitle + '</div>'
+      + '<div style="font-size:13px;color:#536471;line-height:1.4;margin-bottom:4px">' + shortDesc + '</div>'
+      + '<div style="font-size:12px;color:#536471;display:flex;align-items:center;gap:4px">'
+      + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>'
+      + esc(domain) + '</div>'
+      + '</div></div>';
+
+    return '<div class="sec-title collapsed">Social Preview (OG / Twitter Card)</div>'
+      + '<div class="seo-social-prev">'
+      + '<div style="padding:8px 16px 4px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)">Facebook / LINE</div>'
+      + '<div style="padding:0 16px 10px">' + fbCard + '</div>'
+      + '<div style="padding:8px 16px 4px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)">X (Twitter)</div>'
+      + '<div style="padding:0 16px 14px">' + twCard + '</div>'
+      + '</div>';
+  }
+  function serpPreviewHTML(seo) {
+    var domain = (seo.siteUrl || "yourblog.blogspot.com").replace(/^https?:\/\//, "").replace(/\/$/, "");
+    var titleVal = (seo.title ? seo.title + " | " + (seo.blogTitle || "Blog") : seo.blogTitle) || "ชื่อบล็อก";
+    var descVal = seo.desc || "คำอธิบายเว็บไซต์จะแสดงที่นี่ เพิ่ม meta description เพื่อเพิ่มโอกาสให้ผู้ใช้คลิก";
+    var titleTrunc = titleVal.length > 60;
+    var descTrunc = descVal.length > 160;
+    var tDisp = esc(titleTrunc ? titleVal.slice(0, 57) + "…" : titleVal);
+    var dDisp = esc(descTrunc ? descVal.slice(0, 157) + "…" : descVal);
+    var tColor = titleTrunc ? "#ea4335" : "#1a0dab";
+    var dNote = descTrunc ? '<span style="color:#ea4335;font-size:11px;margin-left:4px">⚠ ยาวเกิน 160</span>' : (descVal.length < 120 ? '<span style="color:#f59e0b;font-size:11px;margin-left:4px">⚠ สั้นเกินไป</span>' : '');
+    return '<div style="padding:0 16px 14px">'
+      + '<div style="background:#fff;border-radius:10px;border:1px solid #dde3ec;padding:16px 18px;font-family:Arial,sans-serif">'
+      + '<div style="font-size:13px;color:#202124;line-height:1.3;margin-bottom:4px;display:flex;align-items:center;gap:8px"><div style="width:18px;height:18px;border-radius:50%;background:#e8eaf2;flex:none"></div>' + esc(domain) + ' › …</div>'
+      + '<div style="font-size:18px;line-height:1.3;margin-bottom:4px;color:' + tColor + '">' + tDisp + (titleTrunc ? '<span style="font-size:11px;margin-left:6px;vertical-align:middle">⚠ ยาวเกิน 60</span>' : '') + '</div>'
+      + '<div style="font-size:13.5px;color:#4d5156;line-height:1.5">' + dDisp + dNote + '</div>'
+      + '</div>'
+      + '<div style="display:flex;gap:12px;margin-top:8px;font-size:11px;color:var(--ink-3)">'
+      + '<span>ชื่อ: <b style="color:' + (titleTrunc ? "var(--bad)" : "var(--ok)") + '">' + titleVal.length + '/60</b></span>'
+      + '<span>คำอธิบาย: <b style="color:' + (descVal.length < 120 ? "var(--warn)" : descTrunc ? "var(--bad)" : "var(--ok)") + '">' + descVal.length + '/160</b></span>'
+      + '</div></div>';
+  }
   function bindSeo(c) {
     $$("[data-sk]", c).forEach(function (inp) {
       var k = inp.dataset.sk;
       if (inp.type === "checkbox") inp.addEventListener("change", function () {
         S.seo[k] = inp.checked; save();
-        if (k === "labelIndex" || k === "schema") renderSeo();
+        if (k === "labelIndex" || k === "schema" || k === "schemaSoftwareApp") renderSeo();
       });
       else inp.addEventListener("input", function () {
         S.seo[k] = inp.value; save();
@@ -464,24 +761,88 @@
     if (ot) ot.addEventListener("click", function (e) { var btn = e.target.closest("button"); if (!btn) return; S.seo.orgType = btn.dataset.v; $$("button", ot).forEach(function (x) { x.classList.toggle("on", x === btn); }); save(); });
   }
   var seoT;
-  function renderSeoScoreOnly() { /* re-render whole seo to refresh ring + checks */ var foc = document.activeElement; var k = foc && foc.dataset ? foc.dataset.sk : null; renderSeo(); if (k) { var n = $('[data-sk="' + k + '"]'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } } }
+  function renderSeoScoreOnly() {
+    var foc = document.activeElement;
+    var k = foc && foc.dataset ? foc.dataset.sk : null;
+    renderSeo();
+    if (k) { var n = $('[data-sk="' + k + '"]'); if (n && n.setSelectionRange) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }
+  }
 
-  function seoScore() {
-    var seo = S.seo, checks = [];
-    var t = (seo.title || seo.blogTitle || ""), d = seo.desc || "";
-    checks.push([t.length >= 10 && t.length <= 60, "ความยาว Title เหมาะสม (10–60)"]);
-    checks.push([d.length >= 70 && d.length <= 160, "Meta description (70–160)"]);
-    checks.push([S.blocks.some(function (b) { return b.type === "header"; }), "มีส่วนหัว (Header)"]);
-    checks.push([S.blocks.some(function (b) { return b.type === "footer"; }), "มีส่วนท้าย (Footer)"]);
-    checks.push([S.blocks.some(function (b) { return b.type === "about"; }), "มีหน้า/ส่วนเกี่ยวกับ (E-E-A-T)"]);
-    checks.push([seo.schema, "เปิด Schema JSON-LD"]);
-    checks.push([seo.og, "เปิด Open Graph"]);
-    checks.push([S.blocks.some(function (b) { return /post|featured/.test(b.type); }), "มีส่วนแสดงบทความ"]);
-    var pass = checks.filter(function (x) { return x[0]; }).length;
-    var score = Math.round(pass / checks.length * 100);
-    var color = score >= 80 ? "#22c55e" : score >= 55 ? "#f59e0b" : "#ef4444";
-    var label = score >= 80 ? "ดีมาก พร้อมเผยแพร่" : score >= 55 ? "ดี ปรับเพิ่มได้" : "ควรปรับปรุง";
-    return { score: score, pct: score, color: color, label: label, checks: checks };
+  function seoAudit() {
+    var seo = S.seo;
+    var t = seo.title || seo.blogTitle || "", d = seo.desc || "";
+    var imgBlks = S.blocks.filter(function (b) { return b.type === "image"; });
+    var allAlt = imgBlks.length === 0 || imgBlks.every(function (b) { return b.props && (b.props.alt || "").trim().length > 2; });
+    var cats = [
+      { key: "tech", label: "Technical SEO", color: "#0ea5e9", checks: [
+        { pass: t.length >= 10 && t.length <= 60, label: "Title ความยาวเหมาะสม (10–60)", tip: t.length + " ตัวอักษร" },
+        { pass: d.length >= 70 && d.length <= 160, label: "Meta description (70–160)", tip: d.length + " ตัวอักษร" },
+        { pass: true, label: "Canonical URL อัตโนมัติ", ok: true },
+        { pass: true, label: "Viewport meta ✓", ok: true },
+        { pass: !!seo.siteUrl, label: "URL เว็บไซต์ตั้งค่าแล้ว", tip: "จำเป็นสำหรับ Schema & Canonical" }
+      ]},
+      { key: "struct", label: "โครงสร้างหน้า", color: "#8b5cf6", checks: [
+        { pass: S.blocks.some(function (b) { return b.type === "header"; }), label: "Header (ส่วนหัว)" },
+        { pass: S.blocks.some(function (b) { return b.type === "footer"; }), label: "Footer (ส่วนท้าย)" },
+        { pass: S.blocks.some(function (b) { return b.type === "about"; }), label: "About / ผู้เขียน (E-E-A-T)" },
+        { pass: S.blocks.some(function (b) { return /post|featured/.test(b.type); }), label: "ส่วนแสดงบทความ" },
+        { pass: allAlt, label: "รูปภาพมี ALT text ครบ", tip: imgBlks.length ? imgBlks.length + " รูป" : "ไม่มีบล็อกรูป" }
+      ]},
+      { key: "schema", label: "Schema & Markup", color: "#10b981", checks: [
+        { pass: !!seo.schema, label: "Schema JSON-LD เปิดอยู่" },
+        { pass: !!(seo.schema && seo.siteUrl), label: "WebSite URL (Schema)" },
+        { pass: !!(seo.schema && seo.logoUrl), label: "Logo URL (Organization.logo)" },
+        { pass: !!(seo.schema && seo.sameAs && seo.sameAs.trim()), label: "Social sameAs links" },
+        { pass: !!(seo.schema && seo.siteUrl), label: "WebPage @id fragments (Schema)" }
+      ]},
+      { key: "social", label: "Social & Sharing", color: "#f59e0b", checks: [
+        { pass: !!seo.og, label: "Open Graph เปิดอยู่" },
+        { pass: !!seo.og, label: "Twitter Card เปิดอยู่" },
+        { pass: !!seo.blogTitle && seo.blogTitle.length > 2, label: "ชื่อบล็อกตั้งค่าแล้ว" },
+        { pass: d.length > 50, label: "Description ยาวพอ (og:description)" }
+      ]},
+      { key: "ai", label: "AI Readiness", color: "#a855f7", checks: [
+        { pass: !!seo.siteUrl, label: "Entity @id (siteUrl ตั้งค่าแล้ว)", tip: "จำเป็นสำหรับ @graph @id fragments ให้ AI จดจำเว็บ" },
+        { pass: !!seo.logoUrl, label: "Logo URL (Organisation entity)", tip: "ช่วย AI knowledge graphs สร้าง entity ที่สมบูรณ์" },
+        { pass: !!(seo.sameAs && seo.sameAs.trim()), label: "sameAs links (ยืนยันตัวตน)", tip: "Facebook, YouTube, X ฯลฯ เพิ่มความน่าเชื่อถือ" },
+        { pass: S.blocks.some(function (b) { return b.type === "about"; }), label: "About block (E-E-A-T / Authorship)" },
+        { pass: d.length >= 50, label: "Meta description ≥ 50 ตัวอักษร (AI snippet)", tip: d.length + " ตัวอักษร" },
+        { pass: !!seo.schema, label: "Schema JSON-LD (BreadcrumbList + speakable)" }
+      ]}
+    ];
+    cats.forEach(function (cat) {
+      cat.passCount = cat.checks.filter(function (c) { return c.pass; }).length;
+      cat.score = Math.round(cat.passCount / cat.checks.length * 100);
+    });
+    var totalPass = cats.reduce(function (s, c) { return s + c.passCount; }, 0);
+    var totalAll = cats.reduce(function (s, c) { return s + c.checks.length; }, 0);
+    var overall = Math.round(totalPass / totalAll * 100);
+    var color = overall >= 80 ? "#22c55e" : overall >= 55 ? "#f59e0b" : "#ef4444";
+    var label = overall >= 80 ? "ดีมาก พร้อมเผยแพร่" : overall >= 55 ? "ดี ปรับเพิ่มได้" : "ควรปรับปรุง";
+    return { overall: overall, color: color, label: label, cats: cats };
+  }
+
+  /* ---------- internal link suggestions ---------- */
+  function buildLinkSuggestions() {
+    var base = [
+      { label: "หน้าแรก", url: "/" },
+      { label: "ค้นหา", url: "/search" },
+      { label: "About", url: "/p/about.html" },
+      { label: "ติดต่อ", url: "/p/contact.html" },
+      { label: "แผนผังเว็บ", url: "/p/sitemap.html" }
+    ];
+    if (S) {
+      S.blocks.forEach(function (b) {
+        if (b.type === "header") {
+          menuItemsOf(b.props).forEach(function (m) {
+            if (m.url && !base.some(function (l) { return l.url === m.url; })) {
+              base.push({ label: m.label, url: m.url });
+            }
+          });
+        }
+      });
+    }
+    return base;
   }
 
   /* ---------- design panel ---------- */
@@ -540,12 +901,15 @@
   $$(".p-tabs button").forEach(function (b) { b.addEventListener("click", function () { switchRight(b.dataset.rt); }); });
 
   /* ---------- view (responsive) ---------- */
+  function setView(v) {
+    VIEW = v;
+    $$("#viewTabs button").forEach(function (x) { x.classList.toggle("on", x.dataset.vw === v); });
+    var w = $("#frameWrap");
+    w.style.width = v === "mobile" ? "390px" : v === "tablet" ? "768px" : "100%";
+    renderCanvas();
+  }
   $$("#viewTabs button").forEach(function (b) {
-    b.addEventListener("click", function () {
-      VIEW = b.dataset.vw; $$("#viewTabs button").forEach(function (x) { x.classList.toggle("on", x === b); });
-      var w = $("#frameWrap");
-      w.style.width = VIEW === "mobile" ? "390px" : VIEW === "tablet" ? "768px" : "100%";
-    });
+    b.addEventListener("click", function () { setView(b.dataset.vw); });
   });
 
   /* ---------- mobile switch ---------- */
@@ -585,7 +949,7 @@
   function genXML() {
     var d = S.design, seo = S.seo;
     var titleExpr = "<b:if cond='data:view.isHomepage'><data:blog.title.escaped/><b:else/><data:view.title.escaped/> ~ <data:blog.title.escaped/></b:if>";
-    var css = themeCSS(d);
+    var css = minifyCSS(themeCSS(d));
 
     // Split blocks: post-driven blocks must live INSIDE the single Blog widget
     // (data:posts is only in scope there). Static blocks render directly in <body>.
@@ -597,54 +961,90 @@
       ? postBlocks.map(function (b) { return condWrap(renderBlockStatic(b), b); }).join("\n")
       : "<b:if cond='data:view.isMultipleItems'><b:loop values='data:posts' var='post'><article class='bxb-post'><h2><a expr:href='data:post.url'><data:post.title/></a></h2><div class='post-body'><data:post.body/></div></article></b:loop></b:if><b:if cond='data:view.isSingleItem'><b:loop values='data:posts' var='post'><article><h1 class='post-title'><data:post.title/></h1><div class='post-body'><data:post.body/></div></article></b:loop></b:if>";
     var blogWidget =
-      "<b:section id='main' class='main-section' showaddelement='no'>\n" +
+      "<b:section id='main' class='main-section' mobile='yes' showaddelement='no'>\n" +
       "<b:widget id='Blog1' title='บทความ' type='Blog' version='2' visible='true'>\n" +
       "<b:includable id='main'>\n" + includableBody + "\n</b:includable>\n" +
       "</b:widget>\n</b:section>";
+
+    // If a sidebar block exists, wrap blogWidget + sidebar section in a layout div
+    var sidebarBlock = S.blocks.find(function (b) { return b.type === "sidebar"; });
+    var blogOrLayout = blogWidget;
+    if (sidebarBlock) {
+      var sbp = sidebarBlock.props;
+      var sbGridCols = sbp.position === "left" ? (sbp.width || "280px") + " 1fr" : "1fr " + (sbp.width || "280px");
+      var sbSection = renderBlockStatic(sidebarBlock);
+      var sbCls = "bxb-page-layout" + (sbp.position === "left" ? " sidebar-left" : "");
+      blogOrLayout = "<div class='" + sbCls + "' style='grid-template-columns:" + sbGridCols + "'>" +
+        (sbp.position === "left" ? sbSection + "<div class='bxb-main-col'>" + blogWidget + "</div>" : "<div class='bxb-main-col'>" + blogWidget + "</div>" + sbSection) +
+        "</div>";
+    }
 
     // Assemble body in document order; drop the Blog widget in at the first post block's spot.
     var parts = [], placed = false;
     S.blocks.forEach(function (b, i) {
       if (POST_BLOCKS[b.type]) {
-        if (i === firstPostIdx) { parts.push(blogWidget); placed = true; }
+        if (i === firstPostIdx) { parts.push(blogOrLayout); placed = true; }
         return; // other post blocks already inside the widget
       }
+      if (b.type === "sidebar") return; // already handled inside blogOrLayout
       parts.push(condWrap(renderBlockStatic(b), b));
     });
-    if (!placed) parts.push(blogWidget); // ensure exactly one Blog widget always exists
+    if (!placed) parts.push(blogOrLayout); // ensure exactly one Blog widget always exists
     var bodyHTML = parts.join("\n");
 
     // label robots logic
-    var labelRobots = seo.labelIndex
-      ? "<b:if cond='data:view.isLabelSearch'><meta content='index,follow,max-image-preview:large' name='robots'/></b:if>"
-      : "<b:if cond='data:view.isLabelSearch'><meta content='noindex,follow' name='robots'/></b:if>";
+    var labelRobotsVal = seo.labelIndex ? "index,follow,max-image-preview:large" : "noindex,follow";
+    var labelRobots = "<b:if cond='data:view.isLabelSearch'><meta content='" + labelRobotsVal + "' name='robots'/><meta content='" + labelRobotsVal + "' name='googlebot'/><meta content='" + labelRobotsVal + "' name='bingbot'/></b:if>";
     var schema = seo.schema ? schemaGraph(seo) : "";
     var og = seo.og ? ogTags(seo) : "";
 
     var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n" +
 "<!DOCTYPE html>\n" +
-"<html b:version='2' b:layoutsVersion='3' b:defaultwidgetversion='2' expr:dir='data:blog.languageDirection' xmlns='http://www.w3.org/1999/xhtml' xmlns:b='http://www.google.com/2005/gml/b' xmlns:data='http://www.google.com/2005/gml/data' xmlns:expr='http://www.google.com/2005/gml/expr'>\n" +
+"<html b:css='false' b:defaultwidgetversion='2' b:js='false' b:layoutsVersion='3' b:responsive='true' b:version='2' expr:dir='data:blog.languageDirection' expr:lang='data:blog.locale' xmlns='http://www.w3.org/1999/xhtml' xmlns:b='http://www.google.com/2005/gml/b' xmlns:data='http://www.google.com/2005/gml/data' xmlns:expr='http://www.google.com/2005/gml/expr'>\n" +
 "<head>\n" +
 "<b:include data='blog' name='all-head-content'/>\n" +
+"<link expr:href='data:blog.blogspotFaviconUrl' rel='icon' type='image/x-icon'/>\n" +
 "<meta content='width=device-width, initial-scale=1' name='viewport'/>\n" +
 "<title>" + titleExpr + "</title>\n" +
 "<link expr:href='data:view.url.canonical' rel='canonical'/>\n" +
-"<b:if cond='data:view.isHomepage'><meta content='index,follow,max-image-preview:large,max-snippet:-1' name='robots'/></b:if>\n" +
-"<b:if cond='data:view.isSingleItem'><meta content='index,follow,max-image-preview:large,max-snippet:-1' name='robots'/></b:if>\n" +
-"<b:if cond='data:view.isMultipleItems'><b:if cond='!data:view.isHomepage'><b:if cond='!data:view.isLabelSearch'><meta content='noindex,follow' name='robots'/></b:if></b:if></b:if>\n" +
+"<b:if cond='data:view.isHomepage'><meta content='index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1' name='robots'/><meta content='index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1' name='googlebot'/><meta content='index,follow,max-image-preview:large' name='bingbot'/></b:if>\n" +
+"<b:if cond='data:view.isSingleItem'><meta content='index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1' name='robots'/><meta content='index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1' name='googlebot'/><meta content='index,follow,max-image-preview:large' name='bingbot'/></b:if>\n" +
+"<b:if cond='data:view.isMultipleItems'><b:if cond='!data:view.isHomepage'><b:if cond='!data:view.isLabelSearch'><meta content='noindex,follow' name='robots'/><meta content='noindex,follow' name='googlebot'/><meta content='noindex,follow' name='bingbot'/></b:if></b:if></b:if>\n" +
 labelRobots + "\n" +
-"<b:if cond='data:view.isSearch'><meta content='noindex,follow' name='robots'/></b:if>\n" +
+"<b:if cond='data:view.isSearch'><meta content='noindex,follow' name='robots'/><meta content='noindex,follow' name='googlebot'/><meta content='noindex,follow' name='bingbot'/></b:if>\n" +
+"<b:if cond='data:view.isError'><meta content='noindex,nofollow' name='robots'/></b:if>\n" +
+"<b:if cond='data:view.isArchive'><meta content='noindex,follow' name='robots'/></b:if>\n" +
 "<meta expr:content='data:view.description.escaped' name='description'/>\n" +
 og + "\n" +
+"<link rel='dns-prefetch' href='//1.bp.blogspot.com'/>\n" +
+"<link rel='preconnect' href='https://fonts.googleapis.com'/>\n" +
+"<link crossorigin='anonymous' rel='preconnect' href='https://fonts.gstatic.com'/>\n" +
 "<link href='https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&amp;display=swap' rel='stylesheet'/>\n" +
+"<b:if cond='data:view.isSingleItem'><b:if cond='data:post.featuredImage'><link expr:href='data:post.featuredImage' rel='preload' as='image' fetchpriority='high'/></b:if></b:if>\n" +
 schema + "\n" +
 "<b:skin><![CDATA[\n" + css + "\n]]></b:skin>\n" +
 "</head>\n" +
 "<body>\n" +
 "<a class='skip' href='#main'>ข้ามไปยังเนื้อหา</a>\n" +
 bodyHTML + "\n" +
+"<b:if cond='data:view.isError'><script>/*<![CDATA[*/setTimeout(function(){window.location.replace('/');},3000);/*]]>*/</script></b:if>\n" +
 "</body>\n</html>";
     return xml;
+  }
+
+  /* ---------- CSS Performance Engine ---------- */
+  function minifyCSS(css) {
+    // Extract Blogger Variable block (must keep as comment for Theme Designer)
+    var varBlock = "";
+    css = css.replace(/(\/\*\s*<Variable[\s\S]*?\*\/)/, function (m) { varBlock = m; return "/*__VARS__*/"; });
+    // Strip remaining comments
+    css = css.replace(/\/\*(?!__VARS__)[\s\S]*?\*\//g, "");
+    // Collapse whitespace
+    css = css.replace(/\s+/g, " ")
+             .replace(/\s*([{};:,>~+!])\s*/g, "$1")
+             .replace(/;}/g, "}")
+             .replace("/*__VARS__*/", varBlock);
+    return css.trim();
   }
 
   function skinVariables(d) {
@@ -691,7 +1091,16 @@ skinVariables(d),
 ".nav-toggle-cb:checked~.site-bar .nav-scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:55}",
 "}",
 ".hide-mobile{display:block}",
-"@media(max-width:768px){.grid{grid-template-columns:1fr !important}.hide-mobile{display:none !important}}"
+"@media(max-width:768px){.grid{grid-template-columns:1fr !important}.hide-mobile{display:none !important}}",
+".bxb-page-layout{display:grid;gap:28px;max-width:1080px;margin:0 auto;padding:28px 20px;align-items:start}",
+".bxb-main-col{min-width:0}",
+".bxb-sidebar-col{min-width:0}",
+".bxb-sidebar-col .widget{margin-bottom:18px;background:#f7f8fc;border-radius:var(--radius);padding:16px}",
+".bxb-sidebar-col .widget-title,.bxb-sidebar-col h2,.bxb-sidebar-col h3{font-size:15px;font-weight:700;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--primary)}",
+"@media(max-width:768px){.bxb-page-layout{display:block;padding:16px 20px}.bxb-sidebar-col{margin-top:20px}}",
+".widget{margin-bottom:1.5rem}",
+".widget-title{font-size:1rem;font-weight:700;margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:2px solid var(--primary)}",
+"@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}}"
     ].join("\n");
   }
 
@@ -722,9 +1131,9 @@ skinVariables(d),
       case "featured":
         return "<section style='padding:48px 0'><div class='wrap'><h2 style='font-size:26px;margin-bottom:20px'>" + esc(p.heading) + "</h2><b:loop values='data:posts' index='i' var='post'><b:if cond='data:i == 0'><article style='border-radius:var(--radius);overflow:hidden;background:linear-gradient(120deg,var(--primary),var(--accent));padding:32px;color:#fff'><h3 style='font-size:26px'><a expr:href='data:post.url' style='color:#fff'><data:post.title/></a></h3></article></b:if></b:loop></div></section>";
       case "about":
-        return "<section style='padding:56px 20px;background:#f7f8fc'><div class='wrap' style='display:flex;gap:24px;align-items:center;max-width:820px'>" + (p.showAvatar ? "<div style='width:84px;height:84px;border-radius:50%;background:linear-gradient(120deg,var(--primary),var(--accent));flex:none'></div>" : "") + "<div><h2 style='font-size:24px'>" + esc(p.name) + "</h2><p style='color:#4a5063;margin-top:8px'>" + esc(p.bio) + "</p></div></div></section>";
+        return "<section style='padding:56px 20px;background:#f7f8fc'><div class='wrap' style='display:flex;gap:24px;align-items:center;max-width:820px'>" + (p.showAvatar ? "<div style='width:84px;height:84px;border-radius:50%;background:linear-gradient(120deg,var(--primary),var(--accent));flex:none'></div>" : "") + "<div><h2 style='font-size:24px'>" + esc(p.name) + "</h2><p style='color:#4a5063;margin-top:8px'>" + richHTML(p.bio) + "</p></div></div></section>";
       case "text":
-        return "<section style='padding:40px 20px'><div class='wrap' style='max-width:760px;text-align:" + p.align + "'><h2 style='font-size:28px;margin-bottom:12px'>" + esc(p.heading) + "</h2><p style='color:#4a5063;font-size:16px'>" + esc(p.body) + "</p></div></section>";
+        return "<section style='padding:40px 20px'><div class='wrap' style='max-width:760px;text-align:" + p.align + "'><h2 style='font-size:28px;margin-bottom:12px'>" + esc(p.heading) + "</h2><p style='color:#4a5063;font-size:16px'>" + richHTML(p.body) + "</p></div></section>";
       case "columns":
         var ccn = p.cols || 3, cits = (p.items || []).slice(0, ccn);
         var ccells = cits.map(function (it) { return "<div style='text-align:center;padding:8px'><div style='width:54px;height:54px;border-radius:14px;background:linear-gradient(120deg,var(--primary),var(--accent));color:#fff;display:grid;place-items:center;font-size:24px;margin:0 auto 14px'>" + esc(it.icon || "\u2605") + "</div><h3 style='font-size:18px;margin:0 0 7px'>" + esc(it.title) + "</h3><p style='color:#828aa0;font-size:14px'>" + esc(it.text) + "</p></div>"; }).join("");
@@ -734,9 +1143,153 @@ skinVariables(d),
       case "image":
         return "<figure style='padding:24px 20px;margin:0'><div class='wrap'><div style='aspect-ratio:" + p.ratio + ";background:#e8eaf2;border-radius:var(--radius)'></div>" + (p.caption ? "<figcaption style='text-align:center;color:#9aa;font-size:13px;margin-top:8px'>" + esc(p.caption) + "</figcaption>" : "") + "</div></figure>";
       case "ad":
-        return "<aside aria-label='โฆษณา' style='padding:16px 20px'><div class='wrap'>" + (p.label ? "<div style='text-align:center;font-size:11px;color:#bbc;margin-bottom:4px'>โฆษณา</div>" : "") + "<div style='min-height:90px;display:grid;place-items:center;background:#fafbff;border:1px dashed #ccd;border-radius:8px'><!-- AdSense slot: " + esc(p.slot) + " --></div></div></aside>";
+        var adH = p.size === "rect" ? "280px" : p.size === "banner" ? "90px" : "250px";
+        return "<aside aria-label='โฆษณา' style='padding:16px 20px'><div class='wrap'>" + (p.label ? "<div style='text-align:center;font-size:11px;color:#bbc;margin-bottom:4px'>โฆษณา</div>" : "") + "<div style='min-height:" + adH + ";display:grid;place-items:center;background:#fafbff;border:1px dashed #ccd;border-radius:8px'><!-- AdSense slot: " + esc(p.slot) + " --></div></div></aside>";
+      case "newsletter":
+        return "<section style='padding:52px 20px;text-align:center;background:linear-gradient(120deg,var(--primary)0d,var(--accent)1a)'>"
+          + "<div class='wrap'><h2 style='font-size:26px;margin-bottom:12px'>" + esc(p.heading) + "</h2>"
+          + "<p style='color:#4a5063;margin-bottom:22px;max-width:440px;margin-left:auto;margin-right:auto'>" + esc(p.sub) + "</p>"
+          + "<form style='display:flex;gap:10px;max-width:400px;margin:0 auto;flex-wrap:wrap'>"
+          + "<input type='email' name='email' placeholder='อีเมลของคุณ' required style='flex:1;min-width:180px;padding:12px 16px;border:1px solid #dde;border-radius:var(--radius);font-size:14px'/>"
+          + "<button type='submit' style='background:var(--primary);color:#fff;padding:12px 20px;border:0;border-radius:var(--radius);font-weight:600;cursor:pointer'>" + esc(p.btnText) + "</button>"
+          + "</form></div></section>";
+      case "share":
+        return "<section style='padding:28px 20px;text-align:center'><div class='wrap'>"
+          + (p.label ? "<div style='font-size:13px;color:#828aa0;margin-bottom:14px'>" + esc(p.label) + "</div>" : "")
+          + "<b:if cond='data:view.isSingleItem'><div style='display:flex;gap:10px;justify-content:center;flex-wrap:wrap'>"
+          + (p.facebook ? "<a expr:href='\"https://www.facebook.com/sharer/sharer.php?u=\" + data:post.url' target='_blank' rel='noopener noreferrer' style='padding:10px 18px;background:#1877f2;color:#fff;border-radius:var(--radius);font-weight:600;font-size:13px'>Facebook</a>" : "")
+          + (p.twitter ? "<a expr:href='\"https://twitter.com/intent/tweet?url=\" + data:post.url + \"&text=\" + data:post.title' target='_blank' rel='noopener noreferrer' style='padding:10px 18px;background:#000;color:#fff;border-radius:var(--radius);font-weight:600;font-size:13px'>X (Twitter)</a>" : "")
+          + (p.line ? "<a expr:href='\"https://social-plugins.line.me/lineit/share?url=\" + data:post.url' target='_blank' rel='noopener noreferrer' style='padding:10px 18px;background:#06c755;color:#fff;border-radius:var(--radius);font-weight:600;font-size:13px'>LINE</a>" : "")
+          + "</div></b:if></div></section>";
+      case "sidebar":
+        var sWidgets = "";
+        if (p.showSearch) sWidgets += "<b:widget id='BlogSearch1' type='BlogSearch' title='ค้นหา' version='1' visible='true'/>\n";
+        if (p.showCategories) sWidgets += "<b:widget id='Label1' type='Label' title='ป้ายกำกับ' version='1' visible='true'>\n<b:widget-settings><b:widget-setting name='sorting'>ALPHA</b:widget-setting><b:widget-setting name='display'>list</b:widget-setting><b:widget-setting name='showFreqNumbers'>true</b:widget-setting></b:widget-settings></b:widget>\n";
+        if (p.showArchive) sWidgets += "<b:widget id='BlogArchive1' type='BlogArchive' title='คลังบทความ' version='2' visible='true'>\n<b:widget-settings><b:widget-setting name='pageType'>MONTHLY</b:widget-setting><b:widget-setting name='showPostCount'>true</b:widget-setting></b:widget-settings></b:widget>\n";
+        if (p.showAbout) sWidgets += "<b:widget id='Profile1' type='Profile' title='เกี่ยวกับฉัน' version='1' visible='true'/>\n";
+        return "<b:section id='sidebar' class='bxb-sidebar-col' mobile='yes' showaddelement='yes' preferred='yes'>\n" + sWidgets + "</b:section>";
+      case "search":
+        return "<section style='padding:16px 20px'><div class='wrap'>" + (p.heading ? "<h3 style='font-size:16px;margin-bottom:10px'>" + esc(p.heading) + "</h3>" : "") + "<form action='/search' method='get' role='search'><div style='display:flex;max-width:420px'><input name='q' type='search' placeholder='" + esc(p.placeholder || "ค้นหาในบล็อก…") + "' style='flex:1;padding:12px 16px;border:1px solid #dde;border-radius:var(--radius) 0 0 var(--radius);font-size:14px'/><button type='submit' style='padding:12px 16px;background:var(--primary);color:#fff;border:0;border-radius:0 var(--radius) var(--radius) 0;cursor:pointer'>🔍</button></div></form></div></section>";
       case "footer":
         return "<footer role='contentinfo' style='background:#0f172a;color:#fff;padding:48px 20px 28px'><div class='wrap'><div style='font-weight:700;font-size:19px'>" + esc(S.seo.blogTitle || "MyBlog") + "</div><p style='color:rgba(255,255,255,.6);margin-top:12px;max-width:420px'>" + esc(p.about) + "</p><div style='text-align:center;color:rgba(255,255,255,.4);font-size:12.5px;margin-top:36px;padding-top:20px;border-top:1px solid rgba(255,255,255,.1)'>" + esc(p.copyright) + "</div></div></footer>";
+      case "darkmode":
+        var dmPosCSS = (p.position && p.position.indexOf("top") >= 0 ? "top:72px" : "bottom:24px") + ";" + (p.position && p.position.indexOf("left") >= 0 ? "left:24px" : "right:24px");
+        return "<style>[data-theme=dark]{background:#0f172a !important;color:#e2e8f0 !important}"
+          + "[data-theme=dark] .site-header,[data-theme=dark] header{background:#1e293b !important;border-color:#334155 !important}"
+          + "[data-theme=dark] .post-body a,[data-theme=dark] a{color:#818cf8}"
+          + ".bxb-dm-btn{position:fixed;" + dmPosCSS + ";z-index:9999;width:44px;height:44px;border-radius:50%;background:#f7f8fc;border:1px solid #e8eaf2;cursor:pointer;display:grid;place-items:center;font-size:20px;box-shadow:0 2px 10px rgba(0,0,0,.12);transition:transform .2s,background .2s}"
+          + "[data-theme=dark] .bxb-dm-btn{background:#1e293b;border-color:#334155;color:#e2e8f0}"
+          + ".bxb-dm-btn:hover{transform:scale(1.1)}</style>"
+          + "<button class='bxb-dm-btn' id='bxbDmBtn' aria-label='สลับธีมสว่าง/มืด'>🌙</button>"
+          + "<script>/*<![CDATA[*/(function(){"
+          + "if(document.getElementById('bxbDmBtn2'))return;"
+          + "var b=document.getElementById('bxbDmBtn');"
+          + "var k='bxb-theme';"
+          + "var t=localStorage.getItem(k)||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');"
+          + "document.documentElement.dataset.theme=t;"
+          + "b.textContent=t==='dark'?'☀️':'🌙';"
+          + "b.addEventListener('click',function(){"
+          + "var n=document.documentElement.dataset.theme==='dark'?'light':'dark';"
+          + "document.documentElement.dataset.theme=n;"
+          + "localStorage.setItem(k,n);"
+          + "b.textContent=n==='dark'?'☀️':'🌙';"
+          + "});"
+          + "})();/*]]>*/<\/script>";
+      case "aeo":
+        var aeoTitle = esc(p.title || "สรุปบทความ");
+        var aeoCSS = p.style === "highlight"
+          ? "margin:20px 0;padding:18px 22px;background:var(--accent,#8b5cf6)0d;border-left:4px solid var(--accent,#8b5cf6);border-radius:0 var(--radius,8px) var(--radius,8px) 0"
+          : p.style === "minimal" ? "margin:20px 0;padding:14px 0;border-top:2px solid var(--primary);border-bottom:1px solid #eef"
+          : "margin:20px 0;padding:18px 22px;background:var(--primary)0d;border:1px solid var(--primary)22;border-radius:var(--radius,8px)";
+        return "<b:if cond='data:view.isSingleItem'>"
+          + "<aside class='qt-aeo-summary' aria-label='" + aeoTitle + "' style='" + aeoCSS + "'>"
+          + "<div style='font-size:11.5px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px'>&#128214; " + aeoTitle + "</div>"
+          + "<p style='font-size:15px;line-height:1.7;margin:0'><data:post.snippet/></p>"
+          + "</aside></b:if>";
+      case "toc":
+        var tocTitle = esc(p.title || "สารบัญ");
+        var tocDepth = parseInt(p.maxDepth || 3, 10);
+        var tocSel = tocDepth >= 3 ? "'h2,h3'" : "'h2'";
+        var tocTag = p.numbered !== false ? "ol" : "ul";
+        return "<b:if cond='data:view.isSingleItem'>"
+          + "<nav id='bxbToc' class='bxb-toc' aria-label='" + tocTitle + "' style='margin:20px 0;padding:16px 18px;background:var(--surface-2,#f7f8fc);border-radius:var(--radius,8px);border:1px solid var(--border,#eef)'>"
+          + "<div style='font-size:11.5px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px'>&#128209; " + tocTitle + "</div>"
+          + "<" + tocTag + " id='bxbTocList' style='padding-left:20px;margin:0;font-size:14px;line-height:1.9'></" + tocTag + ">"
+          + "</nav>"
+          + "<script>/*<![CDATA[*/(function(){"
+          + "var toc=document.getElementById('bxbToc');"
+          + "var list=document.getElementById('bxbTocList');"
+          + "var body=document.querySelector('.post-body,.entry-content');"
+          + "if(!toc||!list||!body)return;"
+          + "var hs=body.querySelectorAll(" + tocSel + ");"
+          + "if(hs.length<2){toc.remove();return;}"
+          + "hs.forEach(function(h,i){"
+          + "h.id='bxb-h'+i;"
+          + "var li=document.createElement('li');"
+          + (tocDepth >= 3 ? "if(h.tagName==='H3')li.style.paddingLeft='14px';" : "")
+          + "var a=document.createElement('a');"
+          + "a.href='#bxb-h'+i;"
+          + "a.textContent=h.textContent;"
+          + "a.style.color='inherit';"
+          + "a.style.textDecoration='none';"
+          + "li.appendChild(a);list.appendChild(li);"
+          + "});"
+          + "})();/*]]>*/<\/script>"
+          + "</b:if>";
+      case "related":
+        var relHeading = esc(p.heading || "บทความที่เกี่ยวข้อง");
+        var relCount = p.count || 4;
+        var relCols = p.columns || 2;
+        var relImg = p.showImage !== false;
+        return "<b:if cond='data:view.isSingleItem'>"
+          + "<section class='bxb-related' style='padding:32px 0'><div class='wrap'>"
+          + "<h3 style='font-size:20px;font-weight:700;margin:0 0 18px'>" + relHeading + "</h3>"
+          + "<div id='bxbRelGrid' style='display:grid;grid-template-columns:repeat(" + relCols + ",1fr);gap:16px'></div>"
+          + "</div></section>"
+          + "<b:if cond='data:post.labels'>"
+          + "<b:loop values='data:post.labels' var='label' index='li'>"
+          + "<b:if cond='data:li == 0'><div id='bxbRelMeta' expr:data-lbl='data:label.name' style='display:none'></div></b:if>"
+          + "</b:loop></b:if>"
+          + "<script>/*<![CDATA[*/(function(){"
+          + "var meta=document.getElementById('bxbRelMeta');"
+          + "var grid=document.getElementById('bxbRelGrid');"
+          + "var sec=document.querySelector('.bxb-related');"
+          + "if(!meta||!grid){if(sec)sec.remove();return;}"
+          + "var lbl=encodeURIComponent(meta.dataset.lbl||'');"
+          + "if(!lbl){if(sec)sec.remove();return;}"
+          + "var cur=location.href.replace(/[?#].*/,'');"
+          + "fetch('/feeds/posts/default/-/'+lbl+'?alt=json&max-results=" + (relCount + 1) + "')"
+          + ".then(function(r){return r.json();})"
+          + ".then(function(data){"
+          + "var entries=data.feed&&data.feed.entry||[];"
+          + "var posts=entries.filter(function(e){var al=(e.link||[]).find(function(l){return l.rel==='alternate';});return al&&al.href.replace(/[?#].*/,'')!==cur;}).slice(0," + relCount + ");"
+          + "if(!posts.length){if(sec)sec.remove();return;}"
+          + "posts.forEach(function(e){"
+          + "var al=(e.link||[]).find(function(l){return l.rel==='alternate';});"
+          + "var tm=e['media$thumbnail'];"
+          + "var img=tm?tm.url.replace(/\\/s\\d+-c\\//,'/s400-c/'):null;"
+          + "var t=e.title&&e.title.$t||'';"
+          + "var card=document.createElement('article');"
+          + "card.style.cssText='border:1px solid #eef;border-radius:var(--radius,8px);overflow:hidden;background:#fff';"
+          + (relImg ? "if(img){var im=document.createElement('img');im.src=img;im.alt='';im.loading='lazy';im.style.cssText='width:100%;aspect-ratio:16/9;object-fit:cover';card.appendChild(im);}" : "")
+          + "var di=document.createElement('div');di.style.padding='12px';"
+          + "var h4=document.createElement('h4');h4.style.cssText='font-size:14px;font-weight:600;margin:0;line-height:1.4';"
+          + "var an=document.createElement('a');an.href=al?al.href:'#';an.textContent=t;an.style.cssText='color:inherit;text-decoration:none';"
+          + "h4.appendChild(an);di.appendChild(h4);card.appendChild(di);grid.appendChild(card);"
+          + "});"
+          + "}).catch(function(){if(sec)sec.remove();});"
+          + "})();/*]]>*/<\/script>"
+          + "</b:if>";
+      case "progress":
+        var prgColor = p.color === "accent" ? "var(--accent)" : p.color === "gradient" ? "linear-gradient(90deg,var(--primary),var(--accent))" : "var(--primary)";
+        var prgH = (p.height || 3) + "px";
+        return "<style>#bxbProg{position:fixed;top:0;left:0;width:0%;height:" + prgH + ";background:" + prgColor + ";z-index:10000;pointer-events:none;will-change:width}</style>"
+          + "<div id='bxbProg' role='progressbar' aria-valuemin='0' aria-valuemax='100' aria-valuenow='0' aria-label='ความคืบหน้าการอ่าน'></div>"
+          + "<script>/*<![CDATA[*/(function(){"
+          + "var b=document.getElementById('bxbProg');if(!b)return;"
+          + "function u(){var h=document.documentElement.scrollHeight-window.innerHeight;var p=h>0?Math.min(100,window.scrollY/h*100):0;b.style.width=p+'%';b.setAttribute('aria-valuenow',Math.round(p));}"
+          + "window.addEventListener('scroll',u,{passive:true});u();"
+          + "})();/*]]>*/<\/script>";
     }
     return "";
   }
@@ -744,28 +1297,72 @@ skinVariables(d),
   function jsonStr(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026"); }
   function schemaGraph(seo) {
     var bt = jsonStr(seo.blogTitle || "MyBlog");
+    var su = seo.siteUrl ? jsonStr(seo.siteUrl) : "";
+    var lang = jsonStr((S && S.lang) || "th");
     var out = "";
-    // Site-wide @graph: Organization/Person + WebSite, linked by @id
+    // Absolute-URL @id fragments (schema.org canonical pattern)
+    var orgId = su ? su + "#organization" : "#organization";
+    var siteId = su ? su + "#website" : "#website";
+    // Site-wide @graph: Organization/Person + WebSite
+    // SearchAction/potentialAction intentionally omitted — Google retired Sitelinks Search Box schema Nov 21 2024
     var entityType = seo.orgType === "Person" ? "Person" : seo.orgType === "LocalBusiness" ? "LocalBusiness" : "Organization";
     var sameAsArr = String(seo.sameAs || "").split(/[\n,]+/).map(function (s) { return s.trim(); }).filter(Boolean);
-    var orgProps = ['"@type":"' + entityType + '"', '"@id":"#identity"', '"name":"' + bt + '"'];
-    if (seo.siteUrl) orgProps.push('"url":"' + jsonStr(seo.siteUrl) + '"');
-    if (seo.logoUrl) orgProps.push('"logo":{"@type":"ImageObject","url":"' + jsonStr(seo.logoUrl) + '"}');
+    var orgProps = ['"@type":"' + entityType + '"', '"@id":"' + orgId + '"', '"name":"' + bt + '"'];
+    if (seo.siteUrl) orgProps.push('"url":"' + su + '"');
+    if (seo.logoUrl) orgProps.push('"logo":{"@type":"ImageObject","url":"' + jsonStr(seo.logoUrl) + '"' + (su ? ',"@id":"' + su + '#logo"' : '') + '}');
     if (sameAsArr.length) orgProps.push('"sameAs":[' + sameAsArr.map(function (u) { return '"' + jsonStr(u) + '"'; }).join(",") + "]");
-    var siteProps = ['"@type":"WebSite"', '"@id":"#website"', '"name":"' + bt + '"', '"publisher":{"@id":"#identity"}'];
-    if (seo.siteUrl) siteProps.push('"url":"' + jsonStr(seo.siteUrl) + '"');
-    var graph = '{"@context":"https://schema.org","@graph":[{' + orgProps.join(",") + "},{" + siteProps.join(",") + "}]}";
-    out += "<script type='application/ld+json'>" + graph.replace(/"/g, "&quot;") + "</script>\n";
-    // Per-post BlogPosting + Speakable
-    out += "<b:if cond='data:view.isSingleItem'>\n<script type='application/ld+json'>{&quot;@context&quot;:&quot;https://schema.org&quot;,&quot;@type&quot;:&quot;BlogPosting&quot;,&quot;headline&quot;:&quot;<data:post.title.jsonEscaped/>&quot;,&quot;datePublished&quot;:&quot;<data:post.date.iso8601/>&quot;,&quot;dateModified&quot;:&quot;<data:post.lastUpdated.iso8601/>&quot;,&quot;author&quot;:{&quot;@type&quot;:&quot;Person&quot;,&quot;name&quot;:&quot;<data:post.author.name.jsonEscaped/>&quot;},&quot;publisher&quot;:{&quot;@id&quot;:&quot;#identity&quot;},&quot;mainEntityOfPage&quot;:{&quot;@type&quot;:&quot;WebPage&quot;,&quot;@id&quot;:&quot;<data:post.url.canonical/>&quot;},&quot;speakable&quot;:{&quot;@type&quot;:&quot;SpeakableSpecification&quot;,&quot;cssSelector&quot;:[&quot;h1&quot;,&quot;.post-body&quot;]}}</script>\n" +
-    // BreadcrumbList: หน้าแรก > ป้ายกำกับ > บทความ
-    "<script type='application/ld+json'>{&quot;@context&quot;:&quot;https://schema.org&quot;,&quot;@type&quot;:&quot;BreadcrumbList&quot;,&quot;itemListElement&quot;:[{&quot;@type&quot;:&quot;ListItem&quot;,&quot;position&quot;:1,&quot;name&quot;:&quot;หน้าแรก&quot;,&quot;item&quot;:&quot;<data:blog.homepageUrl/>&quot;},<b:if cond='data:post.labels'><b:loop values='data:post.labels' var='label' index='li'><b:if cond='data:li == 0'>{&quot;@type&quot;:&quot;ListItem&quot;,&quot;position&quot;:2,&quot;name&quot;:&quot;<data:label.name.jsonEscaped/>&quot;,&quot;item&quot;:&quot;<data:label.url.canonical/>&quot;},</b:if></b:loop></b:if>{&quot;@type&quot;:&quot;ListItem&quot;,&quot;position&quot;:3,&quot;name&quot;:&quot;<data:post.title.jsonEscaped/>&quot;}]}</script>\n</b:if>\n";
-    // Label CollectionPage + Breadcrumb
-    out += "<b:if cond='data:view.isLabelSearch'>\n<script type='application/ld+json'>{&quot;@context&quot;:&quot;https://schema.org&quot;,&quot;@type&quot;:&quot;CollectionPage&quot;,&quot;name&quot;:&quot;<data:blog.pageName.jsonEscaped/>&quot;,&quot;isPartOf&quot;:{&quot;@id&quot;:&quot;#website&quot;}}</script>\n</b:if>";
+    var siteProps = ['"@type":"WebSite"', '"@id":"' + siteId + '"', '"name":"' + bt + '"', '"publisher":{"@id":"' + orgId + '"}'];
+    if (seo.siteUrl) siteProps.push('"url":"' + su + '"');
+    var siteGraph = '{"@context":"https://schema.org","@graph":[{' + orgProps.join(",") + "},{" + siteProps.join(",") + "}]}";
+    out += "<script type='application/ld+json'>" + siteGraph.replace(/"/g, "&quot;") + "</script>\n";
+    if (seo.schemaSoftwareApp) {
+      var appProps = ['"@type":"SoftwareApplication"', '"name":"' + bt + '"'];
+      if (seo.siteUrl) appProps.push('"url":"' + su + '"', '"applicationCategory":"WebApplication"', '"operatingSystem":"All"');
+      appProps.push('"publisher":{"@id":"' + orgId + '"}');
+      var appGraph = '{"@context":"https://schema.org","@graph":[{' + appProps.join(",") + "}]}";
+      out += "<script type='application/ld+json'>" + appGraph.replace(/"/g, "&quot;") + "</script>\n";
+    }
+    // Per-post: unified @graph [WebPage + BlogPosting + BreadcrumbList]
+    out += "<b:if cond='data:view.isSingleItem'>\n";
+    out += "<script type='application/ld+json'>" +
+      "{&quot;@context&quot;:&quot;https://schema.org&quot;,&quot;@graph&quot;:[" +
+      // WebPage node
+      "{&quot;@type&quot;:&quot;WebPage&quot;,&quot;@id&quot;:&quot;<data:post.url.canonical/>#webpage&quot;,&quot;url&quot;:&quot;<data:post.url.canonical/>&quot;,&quot;name&quot;:&quot;<data:post.title.jsonEscaped/>&quot;,&quot;isPartOf&quot;:{&quot;@id&quot;:&quot;" + siteId + "&quot;},&quot;inLanguage&quot;:&quot;" + lang + "&quot;,&quot;datePublished&quot;:&quot;<data:post.date.iso8601/>&quot;,&quot;dateModified&quot;:&quot;<data:post.lastUpdated.iso8601/>&quot;}," +
+      // BlogPosting node (static props then conditional image before closing })
+      "{&quot;@type&quot;:&quot;BlogPosting&quot;,&quot;@id&quot;:&quot;<data:post.url.canonical/>#article&quot;,&quot;headline&quot;:&quot;<data:post.title.jsonEscaped/>&quot;,&quot;datePublished&quot;:&quot;<data:post.date.iso8601/>&quot;,&quot;dateModified&quot;:&quot;<data:post.lastUpdated.iso8601/>&quot;,&quot;author&quot;:{&quot;@type&quot;:&quot;Person&quot;,&quot;name&quot;:&quot;<data:post.author.name.jsonEscaped/>&quot;},&quot;publisher&quot;:{&quot;@id&quot;:&quot;" + orgId + "&quot;},&quot;mainEntityOfPage&quot;:{&quot;@id&quot;:&quot;<data:post.url.canonical/>#webpage&quot;},&quot;isPartOf&quot;:{&quot;@id&quot;:&quot;<data:post.url.canonical/>#webpage&quot;},&quot;inLanguage&quot;:&quot;" + lang + "&quot;,&quot;speakable&quot;:{&quot;@type&quot;:&quot;SpeakableSpecification&quot;,&quot;cssSelector&quot;:[&quot;h1&quot;,&quot;.qt-aeo-summary&quot;,&quot;.post-body&quot;]}<b:if cond='data:post.featuredImage'>,&quot;image&quot;:{&quot;@type&quot;:&quot;ImageObject&quot;,&quot;url&quot;:&quot;<data:post.featuredImage/>&quot;,&quot;@id&quot;:&quot;<data:post.url.canonical/>#primaryimage&quot;}</b:if>}," +
+      // BreadcrumbList node: หน้าแรก > (ป้ายกำกับแรก) > บทความ
+      "{&quot;@type&quot;:&quot;BreadcrumbList&quot;,&quot;@id&quot;:&quot;<data:post.url.canonical/>#breadcrumb&quot;,&quot;itemListElement&quot;:[{&quot;@type&quot;:&quot;ListItem&quot;,&quot;position&quot;:1,&quot;name&quot;:&quot;หน้าแรก&quot;,&quot;item&quot;:&quot;<data:blog.homepageUrl/>&quot;},<b:if cond='data:post.labels'><b:loop values='data:post.labels' var='label' index='li'><b:if cond='data:li == 0'>{&quot;@type&quot;:&quot;ListItem&quot;,&quot;position&quot;:2,&quot;name&quot;:&quot;<data:label.name.jsonEscaped/>&quot;,&quot;item&quot;:&quot;<data:label.url.canonical/>&quot;},</b:if></b:loop></b:if>{&quot;@type&quot;:&quot;ListItem&quot;,&quot;position&quot;:3,&quot;name&quot;:&quot;<data:post.title.jsonEscaped/>&quot;,&quot;item&quot;:&quot;<data:post.url.canonical/>&quot;}]}" +
+      "]}</script>\n";
+    out += "</b:if>\n";
+    // Label page: CollectionPage + BreadcrumbList @graph
+    out += "<b:if cond='data:view.isLabelSearch'>\n";
+    out += "<script type='application/ld+json'>" +
+      "{&quot;@context&quot;:&quot;https://schema.org&quot;,&quot;@graph&quot;:[" +
+      "{&quot;@type&quot;:&quot;CollectionPage&quot;,&quot;@id&quot;:&quot;<data:view.url.canonical/>#webpage&quot;,&quot;url&quot;:&quot;<data:view.url.canonical/>&quot;,&quot;name&quot;:&quot;<data:blog.pageName.jsonEscaped/>&quot;,&quot;isPartOf&quot;:{&quot;@id&quot;:&quot;" + siteId + "&quot;},&quot;inLanguage&quot;:&quot;" + lang + "&quot;}," +
+      "{&quot;@type&quot;:&quot;BreadcrumbList&quot;,&quot;itemListElement&quot;:[{&quot;@type&quot;:&quot;ListItem&quot;,&quot;position&quot;:1,&quot;name&quot;:&quot;หน้าแรก&quot;,&quot;item&quot;:&quot;<data:blog.homepageUrl/>&quot;},{&quot;@type&quot;:&quot;ListItem&quot;,&quot;position&quot;:2,&quot;name&quot;:&quot;<data:blog.pageName.jsonEscaped/>&quot;,&quot;item&quot;:&quot;<data:view.url.canonical/>&quot;}]}" +
+      "]}</script>\n";
+    out += "</b:if>";
     return out;
   }
   function ogTags(seo) {
-    return "<meta expr:content='data:view.title.escaped' property='og:title'/>\n<meta expr:content='data:view.description.escaped' property='og:description'/>\n<meta expr:content='data:view.url.canonical' property='og:url'/>\n<meta content='" + esc(seo.blogTitle || "MyBlog") + "' property='og:site_name'/>\n<meta content='summary_large_image' name='twitter:card'/>\n<b:if cond='data:view.featuredImage'><meta expr:content='data:view.featuredImage' property='og:image'/></b:if>";
+    var sn = esc(seo.blogTitle || "MyBlog");
+    return [
+      "<meta expr:content='data:view.title.escaped' property='og:title'/>",
+      "<meta expr:content='data:view.description.escaped' property='og:description'/>",
+      "<meta expr:content='data:view.url.canonical' property='og:url'/>",
+      "<meta content='" + sn + "' property='og:site_name'/>",
+      "<meta expr:content='data:blog.locale' property='og:locale'/>",
+      "<b:if cond='data:view.isHomepage'><meta content='website' property='og:type'/><b:else/><meta content='article' property='og:type'/></b:if>",
+      "<b:if cond='data:view.featuredImage'>",
+      "<meta expr:content='resizeImage(data:view.featuredImage, 1200, \"1200:630\")' property='og:image'/>",
+      "<meta content='1200' property='og:image:width'/>",
+      "<meta content='630' property='og:image:height'/>",
+      "<meta expr:content='data:view.featuredImage' name='twitter:image'/>",
+      "</b:if>",
+      "<meta content='summary_large_image' name='twitter:card'/>",
+      "<meta expr:content='data:view.title.escaped' name='twitter:title'/>",
+      "<meta expr:content='data:view.description.escaped' name='twitter:description'/>"
+    ].join("\n");
   }
 
   /* validate well-formedness */
@@ -783,18 +1380,77 @@ skinVariables(d),
       .replace(/([\w:-]+)=(&quot;[^&]*&quot;)/g, '<span class="xml-attr">$1</span>=<span class="xml-str">$2</span>');
   }
 
-  /* ---------- export modal ---------- */
+  /* ---------- export modal + Build Report ---------- */
   var lastXML = "";
+  function buildStatBox(val, lbl, sub) {
+    return '<div class="bld-stat"><div class="bld-stat-val">' + esc(String(val)) + '</div>'
+      + '<div class="bld-stat-lbl">' + esc(lbl) + '</div>'
+      + (sub ? '<div class="bld-stat-sub">' + esc(sub) + '</div>' : '')
+      + '</div>';
+  }
+  function buildReportHTML() {
+    var rawCSS = themeCSS(S.design);
+    var minCSS = minifyCSS(rawCSS);
+    var saved = Math.round((1 - minCSS.length / rawCSS.length) * 100);
+    var rawKB = (rawCSS.length / 1024).toFixed(1);
+    var minKB = (minCSS.length / 1024).toFixed(1);
+    var a = seoAudit();
+    var schemaTypes = [];
+    if (S.seo.schema) {
+      schemaTypes.push("Organization", "WebSite", "WebPage", "BlogPosting", "BreadcrumbList", "CollectionPage");
+      if (S.seo.schemaSoftwareApp) schemaTypes.push("SoftwareApplication");
+    }
+    var blockCounts = {};
+    S.blocks.forEach(function (b) { blockCounts[b.type] = (blockCounts[b.type] || 0) + 1; });
+    var blockSummary = Object.keys(blockCounts).map(function (t) {
+      return blkLabel(t) + (blockCounts[t] > 1 ? " ×" + blockCounts[t] : "");
+    }).join(", ") || "ไม่มีบล็อก";
+    var warnings = [];
+    if (a.overall < 60) warnings.push("คะแนน SEO ต่ำกว่า 60 — ควรเติมข้อมูลก่อนเผยแพร่");
+    if (!S.seo.siteUrl) warnings.push("ยังไม่ตั้งค่า URL เว็บไซต์ — Schema ไม่สมบูรณ์");
+    if (!S.seo.logoUrl) warnings.push("ยังไม่ตั้งค่า Logo URL — ขาด Organization.logo");
+    if (S.seo.schema && S.seo.siteUrl && !S.seo.siteUrl.startsWith("https")) warnings.push("URL เว็บไซต์ควรขึ้นต้นด้วย https://");
+    if (S.seo.og && !S.seo.logoUrl && !S.blocks.some(function (b) { return b.type === "image"; })) warnings.push("OG เปิดอยู่แต่ไม่มี Logo URL หรือบล็อกรูปภาพ — og:image จะว่างเมื่อโพสต์ไม่มี Featured Image");
+    var imgNoAlt = S.blocks.filter(function (b) { return b.type === "image" && (!b.props.alt || b.props.alt.trim().length < 3); });
+    if (imgNoAlt.length) warnings.push("รูปภาพ " + imgNoAlt.length + " รายการขาด ALT text");
+
+    return '<div style="padding:14px 18px 12px">'
+      + '<div style="font-family:var(--fd);font-weight:600;font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px">📊 Build Report</div>'
+      + '<div class="bld-stats">'
+      + buildStatBox(S.blocks.length, "Blocks", blockSummary.length > 40 ? blockSummary.slice(0, 38) + "…" : blockSummary)
+      + buildStatBox(minKB + " KB", "CSS (minified)", "ลด " + saved + "% จาก " + rawKB + " KB")
+      + buildStatBox(a.overall + "/100", "SEO Score", a.label)
+      + '</div>'
+      + '<div style="font-size:12px;color:var(--ink-3);margin-bottom:4px"><b style="color:var(--ink-2)">Blocks:</b> ' + esc(blockSummary) + '</div>'
+      + (schemaTypes.length ? '<div style="font-size:12px;color:var(--ink-3);margin-bottom:8px"><b style="color:var(--ink-2)">Schema:</b> ' + esc(schemaTypes.join(", ")) + '</div>' : '')
+      + (warnings.length
+          ? warnings.map(function (w) { return '<div class="bld-warn">' + svg('<path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/>', 2) + w + '</div>'; }).join("")
+          : '<div style="font-size:12px;color:var(--ok)">✓ ไม่พบปัญหาในโปรเจกต์</div>')
+      + '</div>';
+  }
   function openExport() {
     lastXML = genXML();
     var v = validateXML(lastXML);
     var badge = $("#validBadge");
     badge.className = "vbadge " + (v.ok ? "ok" : "bad");
     badge.textContent = v.ok ? "✓ XML valid" : "✕ " + v.msg;
+    var rpt = $("#buildReport");
+    if (rpt) {
+      rpt.innerHTML = buildReportHTML();
+      rpt.style.maxHeight = "0";
+    }
     $("#xmlOut").innerHTML = highlightXML(lastXML);
     $("#exportModal").classList.add("open");
   }
   $("#exportBtn").addEventListener("click", openExport);
+  var reportOpen = false;
+  var toggleRptBtn = $("#toggleReport");
+  if (toggleRptBtn) toggleRptBtn.addEventListener("click", function () {
+    var rpt = $("#buildReport"); if (!rpt) return;
+    reportOpen = !reportOpen;
+    rpt.style.maxHeight = reportOpen ? rpt.scrollHeight + "px" : "0";
+    toggleRptBtn.style.background = reportOpen ? "var(--surface-2)" : "";
+  });
 
   /* ---------- live preview in a new window (real, scrollable, responsive) ---------- */
   function previewHTML() {
@@ -830,13 +1486,74 @@ skinVariables(d),
   $("#dlXml").addEventListener("click", function () { download(lastXML, (slug(S.name) || "blogger-theme") + ".xml", "application/xml"); toast("ดาวน์โหลดแล้ว"); });
   $("#dlJson").addEventListener("click", function () { download(JSON.stringify(S, null, 2), (slug(S.name) || "project") + ".json", "application/json"); toast("บันทึกโปรเจกต์แล้ว"); });
 
+  /* ---------- Export Center: install guide + .bxb ---------- */
+  function installGuideHTML() {
+    var su = (S && S.seo && S.seo.siteUrl) || "";
+    var domain = su ? su.replace(/\/$/, "") : "https://yourblog.blogspot.com";
+    var atomUrl = domain + "/atom.xml?redirect=false&start-index=1&max-results=500";
+    var robotsTxt = "User-agent: *\nDisallow: /search\nAllow: /\n\nUser-agent: Googlebot\nDisallow: /search\nAllow: /\n\nUser-agent: OAI-SearchBot\nAllow: /\n\nUser-agent: ChatGPT-User\nAllow: /\n\nUser-agent: PerplexityBot\nAllow: /\n\nUser-agent: ClaudeBot\nAllow: /\n\nUser-agent: GPTBot\nAllow: /\n\nUser-agent: Google-Extended\nAllow: /\n\nSitemap: " + atomUrl;
+    return '<div style="padding:14px 18px 14px">'
+      + '<div style="font-family:var(--fd);font-weight:600;font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px">📖 วิธีนำธีมไปใช้บน Blogger</div>'
+      + '<ol style="padding-left:22px;display:flex;flex-direction:column;gap:7px;font-size:13px;color:var(--ink-2);line-height:1.6">'
+      + '<li>กดปุ่ม <b>"ดาวน์โหลด .xml"</b> ด้านล่างเพื่อบันทึกไฟล์ธีม</li>'
+      + '<li>ไปที่ <b>blogger.com</b> → เลือกบล็อกของคุณ</li>'
+      + '<li>เมนูซ้าย → <b>ธีม (Theme)</b> → กดปุ่มลูกศร <b>▾</b> ข้างปุ่ม "ปรับแต่ง"</li>'
+      + '<li>เลือก <b>"กู้คืน (Restore)"</b> แล้วเลือกไฟล์ .xml ที่ดาวน์โหลดมา</li>'
+      + '<li>กด <b>อัปโหลด (Upload)</b> — ธีมจะถูกใช้งานทันที ✓</li>'
+      + '</ol>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'
+      + '<div style="padding:9px 11px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.22);border-radius:8px;font-size:12px;color:#fbbf24;line-height:1.5">⚠ <b>สำรองก่อน:</b> ธีม → ▾ → สำรองข้อมูล</div>'
+      + '<div style="padding:9px 11px;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.2);border-radius:8px;font-size:12px;color:#4ade80;line-height:1.5">💡 ไฟล์ .bxb เปิดกลับมาแก้ไขใน Builder ได้ทุกเมื่อ</div>'
+      + '</div>'
+      + '<div class="sec-divider" style="margin:12px 0 8px"></div>'
+      + '<div style="font-family:var(--fd);font-weight:600;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin-bottom:5px">🗺 Google Search Console Sitemap</div>'
+      + '<div style="font-size:12px;color:var(--ink-3);margin-bottom:7px">ส่ง URL นี้ใน <b>GSC → Sitemaps</b> เพื่อให้ Google รู้จักบทความทั้งหมด</div>'
+      + '<div style="display:flex;align-items:center;gap:6px">'
+      + '<code style="flex:1;padding:6px 9px;background:var(--surface-2);border-radius:6px;font-size:11px;word-break:break-all;color:var(--ink-2);font-family:monospace">' + esc(atomUrl) + '</code>'
+      + '<button data-action="copy-atom" data-value="' + esc(atomUrl) + '" style="flex:none;padding:6px 10px;background:var(--brand);color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap">คัดลอก</button>'
+      + '</div>'
+      + '<div class="sec-divider" style="margin:12px 0 8px"></div>'
+      + '<div style="font-family:var(--fd);font-weight:600;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin-bottom:4px">🤖 robots.txt Template (AI Bots)</div>'
+      + '<div style="font-size:12px;color:var(--ink-3);margin-bottom:7px">วางใน <b>Blogger → Settings → Custom robots.txt</b></div>'
+      + '<pre data-robots-tmpl style="margin:0 0 7px;padding:9px 11px;background:var(--surface-2);border-radius:7px;font-size:11px;line-height:1.6;overflow-x:auto;white-space:pre;color:var(--ink-2);font-family:monospace">' + robotsTxt + '</pre>'
+      + '<button data-action="copy-robots" style="padding:6px 12px;background:var(--surface-2);color:var(--ink-2);border:1px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer">คัดลอก robots.txt</button>'
+      + '</div>';
+  }
+  var guideOpen = false;
+  var toggleGuideBtn = $("#toggleGuide");
+  if (toggleGuideBtn) toggleGuideBtn.addEventListener("click", function () {
+    var ig = $("#installGuide"); if (!ig) return;
+    guideOpen = !guideOpen;
+    if (guideOpen && !ig.innerHTML.trim()) {
+      ig.innerHTML = installGuideHTML();
+      ig.querySelectorAll("[data-action]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          if (btn.dataset.action === "copy-atom") {
+            navigator.clipboard.writeText(btn.dataset.value || "").then(function () { toast("คัดลอก URL แล้ว"); });
+          } else if (btn.dataset.action === "copy-robots") {
+            var pre = ig.querySelector("[data-robots-tmpl]");
+            if (pre) navigator.clipboard.writeText(pre.textContent).then(function () { toast("คัดลอก robots.txt แล้ว"); });
+          }
+        });
+      });
+    }
+    ig.style.maxHeight = guideOpen ? ig.scrollHeight + "px" : "0";
+    toggleGuideBtn.style.background = guideOpen ? "var(--surface-2)" : "";
+  });
+  var dlBxbBtn = $("#dlBxb");
+  if (dlBxbBtn) dlBxbBtn.addEventListener("click", function () {
+    if (!S) return;
+    download(JSON.stringify(S, null, 2), (slug(S.name) || "project") + ".bxb", "application/json");
+    toast("บันทึก .bxb แล้ว");
+  });
+
   function download(text, name, mime) { var b = new Blob([text], { type: mime + ";charset=utf-8" }); var u = URL.createObjectURL(b); var a = el("a", { href: u, download: name }); document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 1500); }
   function slug(s) { return String(s || "").trim().toLowerCase().replace(/[^\w\u0e00-\u0e7f]+/g, "-").replace(/^-+|-+$/g, ""); }
   function toast(m) { var t = $("#toast"); $("#toastMsg").textContent = m; t.classList.add("show"); clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove("show"); }, 1900); }
 
   /* ---------- top bar actions ---------- */
   $("#projName").addEventListener("input", function () { S.name = this.value; save(); });
-  $("#undoBtn").addEventListener("click", function () { if (HISTORY.length > 1) { HISTORY.pop(); S.blocks = JSON.parse(HISTORY[HISTORY.length - 1]); SEL = null; renderCanvas(); renderProps(); renderSeo(); save(); toast("ย้อนกลับแล้ว"); } });
+  $("#undoBtn").addEventListener("click", function () { if (HISTORY.length > 1) { HISTORY.pop(); S.blocks = JSON.parse(HISTORY[HISTORY.length - 1].snap); SEL = null; renderCanvas(); renderProps(); renderSeo(); save(); toast("ย้อนกลับแล้ว"); } });
   $("#restartBtn").addEventListener("click", function () { if (confirm("เริ่มใหม่? โปรเจกต์ปัจจุบันจะถูกล้าง")) { localStorage.removeItem(KEY); location.reload(); } });
 
   /* ---------- start screen ---------- */
@@ -911,7 +1628,7 @@ skinVariables(d),
       return '<div class="layer-row' + (b.id === SEL ? " sel" : "") + '" draggable="true" data-id="' + b.id + '">'
         + '<span class="lh">' + svg(IC[b.type] || IC.text) + '</span>'
         + '<span class="ln">' + esc(t) + '</span>'
-        + '<span class="lg"><button data-lup title="ขึ้น">↑</button><button data-ldn title="ลง">↓</button><button data-ldel title="ลบ">✕</button></span>'
+        + '<span class="lg"><button data-lup title="ขึ้น">↑</button><button data-ldn title="ลง">↓</button><button data-ldup title="ทำซ้ำ">⧉</button><button data-ldel title="ลบ">✕</button></span>'
         + '</div>';
     }).join("");
     // bind
@@ -920,6 +1637,7 @@ skinVariables(d),
       row.addEventListener("click", function (e) { if (e.target.closest("button")) return; select(row.dataset.id); });
       row.querySelector("[data-lup]").addEventListener("click", function (e) { e.stopPropagation(); move(row.dataset.id, -1); renderLayers(); });
       row.querySelector("[data-ldn]").addEventListener("click", function (e) { e.stopPropagation(); move(row.dataset.id, 1); renderLayers(); });
+      row.querySelector("[data-ldup]").addEventListener("click", function (e) { e.stopPropagation(); duplicate(row.dataset.id); renderLayers(); });
       row.querySelector("[data-ldel]").addEventListener("click", function (e) { e.stopPropagation(); removeBlock(row.dataset.id); renderLayers(); });
       row.addEventListener("dragstart", function () { dragId = row.dataset.id; row.classList.add("dragging"); });
       row.addEventListener("dragend", function () { row.classList.remove("dragging"); $$(".layer-row", v).forEach(function (r) { r.classList.remove("over"); }); });
@@ -964,7 +1682,7 @@ skinVariables(d),
     "องค์ประกอบ — ลากไปวางบนหน้า": "Elements — drag onto the page",
     "เลือกองค์ประกอบบนหน้าเว็บ": "Select an element on the page", "เพื่อปรับแต่งคุณสมบัติ": "to edit its properties",
     // library groups + items
-    "โครงสร้างหลัก": "Layout", "เนื้อหา": "Content", "ส่วนเสริม": "Extras",
+    "โครงสร้างหลัก": "Layout", "เนื้อหา": "Content", "ส่วนเสริม": "Extras", "บทความ & UX": "Article & UX",
     "ส่วนหัว (Header)": "Header", "โลโก้ + เมนู": "Logo + menu",
     "Hero": "Hero", "แบนเนอร์หลัก + ปุ่ม": "Main banner + button",
     "ส่วนท้าย (Footer)": "Footer", "ลิงก์ + ลิขสิทธิ์": "Links + copyright",
@@ -976,8 +1694,13 @@ skinVariables(d),
     "Call To Action": "Call To Action", "กล่องชวนคลิก": "Promo box",
     "รูปภาพ": "Image", "Image": "Image",
     "ช่องโฆษณา": "Ad Slot", "AdSense Safe": "AdSense Safe",
+    "Sidebar Layout": "Sidebar Layout", "เนื้อหา + ไซด์บาร์": "Content + Sidebar",
+    "ช่องค้นหา": "Search Box", "Search Box": "Search Box",
+    "สารบัญ (TOC)": "Table of Contents (TOC)", "บทความที่เกี่ยวข้อง": "Related Posts",
+    "สรุปสำหรับ AI / Google": "AI / Google summary", "สร้างจาก h2/h3 อัตโนมัติ": "Auto-generated from h2/h3",
+    "แถบความคืบหน้าการอ่าน": "Reading progress bar", "ปุ่มสลับธีมมืด/สว่าง": "Dark/light theme toggle",
     // block labels
-    "เกี่ยวกับ": "About", "CTA": "CTA", "โฆษณา": "Ad",
+    "เกี่ยวกับ": "About", "CTA": "CTA", "โฆษณา": "Ad", "Sidebar": "Sidebar", "ค้นหา": "Search",
     // field labels
     "ข้อความโลโก้": "Logo text", "เมนูนำทาง — ใส่ลิงก์ได้แต่ละอัน": "Navigation — set a link per item",
     "+ เพิ่มเมนู": "+ Add menu item", "เมนูมือถือเด้งจาก": "Mobile menu slides from",
@@ -993,6 +1716,11 @@ skinVariables(d),
     "เนื้อหา": "Body", "ข้อความ ALT (SEO)": "ALT text (SEO)", "คำบรรยายใต้ภาพ": "Caption",
     "สัดส่วน": "Ratio", "ตำแหน่ง": "Position", "บน": "Top", "ข้าง": "Side",
     "ตั้งค่าพื้นหลัง": "Background",
+    // Phase 3 block fields
+    "ตำแหน่งปุ่ม": "Button position", "ขวาล่าง": "Bottom right", "ซ้ายล่าง": "Bottom left", "ขวาบน": "Top right", "ซ้ายบน": "Top left",
+    "หัวข้อกล่องสรุป": "Summary box heading", "สไตล์": "Style", "การ์ด": "Card", "ไฮไลท์": "Highlight", "เรียบ": "Minimal",
+    "หัวข้อสารบัญ": "TOC heading", "ความลึก heading": "Heading depth", "h2 เท่านั้น": "h2 only", "แสดงลำดับตัวเลข": "Show numbering",
+    "สีแถบ": "Bar color", "ความสูง (px)": "Height (px)",
     // SEO panel
     "คะแนน SEO": "SEO Score", "วิเคราะห์แบบเรียลไทม์ขณะออกแบบ": "Analyzed live as you design",
     "ชื่อบล็อก": "Blog title", "ป้ายกำกับ (Labels)": "Labels",
@@ -1033,6 +1761,312 @@ skinVariables(d),
   }
   var blEl = $("#blLang");
   if (blEl) blEl.addEventListener("click", function (e) { var b = e.target.closest("button"); if (b) applyBuilderLang(b.dataset.bl); });
+
+  /* ---------- IMPORT JSON ---------- */
+  var importFileEl = $("#importFile");
+  var importBtnEl = $("#importBtn");
+  if (importBtnEl && importFileEl) {
+    importBtnEl.addEventListener("click", function () { importFileEl.click(); });
+    importFileEl.addEventListener("change", function () {
+      var file = importFileEl.files[0]; if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          var data = JSON.parse(e.target.result);
+          if (!data || !Array.isArray(data.blocks)) { toast("ไฟล์ไม่ถูกต้อง — ต้องเป็น .json ที่ export จาก BloggerXMLBuilder"); return; }
+          S = data;
+          if (!S.seo) S.seo = freshProject().seo;
+          if (!S.design) S.design = freshProject().design;
+          SEL = null; HISTORY = []; pushHistory();
+          $("#startScreen").style.display = "none";
+          $("#projName").value = S.name || "โปรเจกต์";
+          renderCanvas(); renderProps(); renderSeo(); renderDesign(); buildLib(); setupLibDrag(); save();
+          toast("โหลดโปรเจกต์แล้ว: " + (S.name || "ไม่มีชื่อ"));
+        } catch (err) { toast("อ่านไฟล์ไม่ได้ — " + String(err).slice(0, 60)); }
+      };
+      reader.readAsText(file);
+      importFileEl.value = "";
+    });
+  }
+
+  /* ---------- VERSION HISTORY ---------- */
+  function historyTimeAgo(ts) {
+    var diff = Math.floor((Date.now() - ts) / 1000);
+    if (diff < 60) return "เมื่อกี้";
+    if (diff < 3600) return Math.floor(diff / 60) + " นาทีที่แล้ว";
+    if (diff < 86400) return Math.floor(diff / 3600) + " ชั่วโมงที่แล้ว";
+    return Math.floor(diff / 86400) + " วันที่แล้ว";
+  }
+  function showHistory() {
+    var m = $("#historyModal"); if (!m) return;
+    var list = $("#historyList"); if (!list) return;
+    if (HISTORY.length <= 1) { list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--ink-3);font-size:13.5px">ยังไม่มีประวัติ<br>เริ่มแก้ไขโปรเจกต์เพื่อบันทึกอัตโนมัติ</div>'; }
+    else {
+      var items = HISTORY.slice().reverse();
+      list.innerHTML = items.map(function (h, i) {
+        var blocks = JSON.parse(h.snap);
+        var isCurrent = i === 0;
+        return '<div class="hist-row' + (isCurrent ? " hist-curr" : "") + '" data-hi="' + (HISTORY.length - 1 - i) + '">'
+          + '<span class="hist-dot"></span>'
+          + '<span class="hist-info">'
+          + '<span class="hist-time">' + (isCurrent ? "ปัจจุบัน" : historyTimeAgo(h.ts)) + '</span>'
+          + '<span class="hist-meta">' + blocks.length + ' blocks'
+          + (blocks.length ? ' — ' + blocks.slice(0, 3).map(function (b) { return blkLabel(b.type); }).join(", ") + (blocks.length > 3 ? "…" : "") : "")
+          + '</span></span>'
+          + (isCurrent ? '' : '<button class="hist-restore btn btn-ghost btn-sm" data-hi="' + (HISTORY.length - 1 - i) + '">Restore</button>')
+          + '</div>';
+      }).join("");
+      $$(".hist-restore", list).forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var idx = parseInt(btn.dataset.hi, 10);
+          S.blocks = JSON.parse(HISTORY[idx].snap);
+          HISTORY = HISTORY.slice(0, idx + 1);
+          SEL = null; renderCanvas(); renderProps(); renderSeo(); save();
+          m.classList.remove("open");
+          toast("กู้คืนแล้ว (" + historyTimeAgo(HISTORY[idx].ts) + ")");
+        });
+      });
+    }
+    m.classList.add("open");
+  }
+  var histBtnEl = $("#historyBtn");
+  if (histBtnEl) histBtnEl.addEventListener("click", showHistory);
+  var histModal = $("#historyModal");
+  if (histModal) {
+    histModal.querySelector("[data-hx]").addEventListener("click", function () { histModal.classList.remove("open"); });
+    histModal.querySelector(".modal-scrim").addEventListener("click", function () { histModal.classList.remove("open"); });
+  }
+
+  /* ---------- COMMAND PALETTE (Ctrl+K / ⌘K) ---------- */
+  var CMD_ACTIONS = [
+    { group: "การดำเนินการ", label: "Export XML", sub: "สร้าง Blogger XML และดาวน์โหลด", icon: IC.cursor, kbd: "", fn: function () { openExport(); } },
+    { group: "การดำเนินการ", label: "ย้อนกลับ (Undo)", sub: "ย้อนการเปลี่ยนแปลงล่าสุด", icon: IC.cursor, kbd: "⌘Z", fn: function () { $("#undoBtn").click(); } },
+    { group: "การดำเนินการ", label: "ทำซ้ำ Block ที่เลือก", sub: "สร้างสำเนาของ block ปัจจุบัน", icon: IC.columns, kbd: "⌘D", fn: function () { if (SEL) duplicate(SEL); else toast("เลือก block ก่อน"); } },
+    { group: "การดำเนินการ", label: "Version History", sub: "ดูและกู้คืนประวัติการแก้ไข", icon: IC.history, kbd: "", fn: function () { showHistory(); } },
+    { group: "การดำเนินการ", label: "โหลดโปรเจกต์ (.json)", sub: "นำเข้าโปรเจกต์จากไฟล์ JSON", icon: IC.image, kbd: "", fn: function () { var f = $("#importFile"); if (f) f.click(); } },
+    { group: "การดำเนินการ", label: "พรีวิวหน้าต่างใหม่", sub: "เปิดพรีวิวในแท็บใหม่", icon: IC.image, kbd: "", fn: function () { $("#popoutBtn").click(); } },
+    { group: "มุมมอง", label: "Desktop (เดสก์ท็อป)", sub: "พรีวิวขนาดจอใหญ่", icon: IC.cursor, fn: function () { setView("desktop"); } },
+    { group: "มุมมอง", label: "Tablet (แท็บเล็ต)", sub: "พรีวิวขนาด 768px", icon: IC.cursor, fn: function () { setView("tablet"); } },
+    { group: "มุมมอง", label: "Mobile (มือถือ)", sub: "พรีวิวขนาด 390px", icon: IC.cursor, fn: function () { setView("mobile"); } },
+    { group: "แผง", label: "แผงคุณสมบัติ", sub: "ปรับแต่ง block ที่เลือก", icon: IC.text, fn: function () { switchRight("props"); } },
+    { group: "แผง", label: "แผง SEO", sub: "ตั้งค่า SEO และ Schema", icon: IC.cursor, fn: function () { switchRight("seo"); } },
+    { group: "แผง", label: "แผงดีไซน์", sub: "เปลี่ยนสี ฟอนต์ และขอบ", icon: IC.cursor, fn: function () { switchRight("design"); } },
+    { group: "แผง", label: "โครงสร้างหน้า (Layers)", sub: "ดูและจัดลำดับ block", icon: IC.columns, fn: function () { var t = $("#leftTabs"); if (t) { $$("button", t).forEach(function (b) { b.classList.toggle("on", b.dataset.lt === "layers"); }); var lv = $("#layersView"); var lg = $("#libGroups"); if (lv) lv.style.display = ""; if (lg) lg.style.display = "none"; renderLayers(); } } }
+  ];
+  // Build element-add commands from LIB
+  var CMD_ELEMENTS = [];
+  LIB.forEach(function (g) {
+    g[1].forEach(function (it) {
+      (function (type, name, desc) {
+        CMD_ELEMENTS.push({ group: "เพิ่มองค์ประกอบ", label: "เพิ่ม " + name, sub: desc, icon: IC[type] || IC.text, fn: function () {
+          if (!S) { toast("เปิดโปรเจกต์ก่อนนะครับ"); return; }
+          addBlock(type);
+        }});
+      })(it[0], it[1], it[2]);
+    });
+  });
+  var CMD_ALL = CMD_ACTIONS.concat(CMD_ELEMENTS);
+
+  var cmdIsOpen = false, cmdHiIdx = -1;
+  function openCmdPal() {
+    var pal = $("#cmdPal"); if (!pal) return;
+    pal.classList.add("open"); cmdIsOpen = true; cmdHiIdx = -1;
+    var inp = $("#cmdInp"); if (inp) { inp.value = ""; inp.focus(); }
+    renderCmdList("");
+  }
+  function closeCmdPal() {
+    var pal = $("#cmdPal"); if (pal) pal.classList.remove("open");
+    cmdIsOpen = false;
+  }
+  function cmdFiltered(q) {
+    q = (q || "").toLowerCase().trim();
+    if (!q) return CMD_ALL;
+    return CMD_ALL.filter(function (c) {
+      return c.label.toLowerCase().indexOf(q) >= 0 || (c.sub || "").toLowerCase().indexOf(q) >= 0 || c.group.toLowerCase().indexOf(q) >= 0;
+    });
+  }
+  function renderCmdList(q) {
+    var list = $("#cmdList"); if (!list) return;
+    var flat = cmdFiltered(q);
+    if (!flat.length) { list.innerHTML = '<div class="cmd-empty">ไม่พบคำสั่ง "<b>' + esc(q) + '</b>"<br><span style="font-size:12px;margin-top:4px;display:block">ลองค้นหาชื่อองค์ประกอบหรือการดำเนินการ</span></div>'; return; }
+    var groups = {}, order = [];
+    flat.forEach(function (c, i) {
+      if (!groups[c.group]) { groups[c.group] = []; order.push(c.group); }
+      groups[c.group].push({ cmd: c, idx: i });
+    });
+    var html = "";
+    order.forEach(function (g) {
+      html += '<div class="cmd-grp">' + esc(g) + '</div>';
+      groups[g].forEach(function (item) {
+        html += '<div class="cmd-row' + (item.idx === cmdHiIdx ? " hi" : "") + '" data-ci="' + item.idx + '">'
+          + '<span class="ci">' + svg(item.cmd.icon || IC.text) + '</span>'
+          + '<span class="cn">' + esc(item.cmd.label) + '</span>'
+          + '<span class="cs">' + esc(item.cmd.sub || "") + '</span>'
+          + (item.cmd.kbd ? '<span class="ck">' + item.cmd.kbd + '</span>' : '')
+          + '</div>';
+      });
+    });
+    list.innerHTML = html;
+    $$(".cmd-row", list).forEach(function (row) {
+      row.addEventListener("click", function () {
+        var i = parseInt(row.dataset.ci, 10);
+        var f = cmdFiltered($("#cmdInp") ? $("#cmdInp").value : "");
+        if (f[i]) { closeCmdPal(); f[i].fn(); }
+      });
+    });
+  }
+  function cmdExecHighlighted() {
+    var q = $("#cmdInp") ? $("#cmdInp").value : "";
+    var flat = cmdFiltered(q);
+    var pick = cmdHiIdx >= 0 ? flat[cmdHiIdx] : flat[0];
+    if (pick) { closeCmdPal(); pick.fn(); }
+  }
+  document.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "k") { e.preventDefault(); cmdIsOpen ? closeCmdPal() : openCmdPal(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key === "d") { var tag = e.target.tagName; if (tag === "INPUT" || tag === "TEXTAREA") return; e.preventDefault(); if (SEL) duplicate(SEL); return; }
+    if (!cmdIsOpen) return;
+    if (e.key === "Escape") { closeCmdPal(); return; }
+    if (e.key === "Enter") { e.preventDefault(); cmdExecHighlighted(); return; }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      var q = $("#cmdInp") ? $("#cmdInp").value : "";
+      var flat = cmdFiltered(q);
+      if (!flat.length) return;
+      cmdHiIdx = e.key === "ArrowDown" ? Math.min(cmdHiIdx + 1, flat.length - 1) : Math.max(cmdHiIdx - 1, 0);
+      renderCmdList(q);
+      var hi = $(".cmd-row.hi", $("#cmdList")); if (hi) hi.scrollIntoView({ block: "nearest" });
+    }
+  });
+  var cmdInpEl = $("#cmdInp");
+  if (cmdInpEl) cmdInpEl.addEventListener("input", function () { cmdHiIdx = -1; renderCmdList(this.value); });
+  var cmdScrimEl = $("#cmdScrim");
+  if (cmdScrimEl) cmdScrimEl.addEventListener("click", closeCmdPal);
+  var cmdBtnEl = $("#cmdBtn");
+  if (cmdBtnEl) cmdBtnEl.addEventListener("click", openCmdPal);
+
+  /* ---------- FLOATING RICH TEXT TOOLBAR ---------- */
+  (function () {
+    var rtb = $("#richToolbar"), rtbLinks = $("#rtbLinks"), rtbLL = $("#rtbLinkList");
+    if (!rtb) return;
+    var activeRich = null;
+
+    function showTB(x, y) {
+      rtb.style.left = Math.max(4, Math.min(x - 80, window.innerWidth - 240)) + "px";
+      rtb.style.top = Math.max(4, y - 48) + "px";
+      rtb.classList.add("show");
+    }
+    function hideTB() {
+      rtb.classList.remove("show");
+      if (rtbLinks) rtbLinks.classList.remove("show");
+    }
+
+    // Show toolbar after mouseup if there is a text selection in a rich textarea
+    document.addEventListener("mouseup", function (e) {
+      if (rtb.contains(e.target) || (rtbLinks && rtbLinks.contains(e.target))) return;
+      if (!activeRich) return;
+      var s = activeRich.selectionStart, en = activeRich.selectionEnd;
+      if (s !== en) showTB(e.clientX, e.clientY);
+      else if (!rtb.contains(e.target)) rtb.classList.remove("show");
+    });
+
+    // Track which rich textarea is active
+    document.addEventListener("focusin", function (e) {
+      if (e.target && e.target.dataset && e.target.dataset.rich) {
+        activeRich = e.target;
+      } else if (!rtb.contains(e.target) && !(rtbLinks && rtbLinks.contains(e.target))) {
+        activeRich = null; hideTB();
+      }
+    });
+    document.addEventListener("focusout", function (e) {
+      if (!e.target || !e.target.dataset || !e.target.dataset.rich) return;
+      setTimeout(function () {
+        var foc = document.activeElement;
+        if (!foc || (!foc.dataset || !foc.dataset.rich) && !rtb.contains(foc) && !(rtbLinks && rtbLinks.contains(foc))) {
+          hideTB();
+        }
+      }, 150);
+    });
+
+    // Toolbar button handler
+    rtb.addEventListener("mousedown", function (e) {
+      e.preventDefault();
+      var btn = e.target.closest("[data-rtb]");
+      if (!btn || !activeRich) return;
+      var cmd = btn.dataset.rtb;
+      if (cmd === "link") {
+        showLinkDD(e.clientX, e.clientY + 8);
+        return;
+      }
+      if (cmd === "clear") {
+        var s = activeRich.selectionStart, en = activeRich.selectionEnd, val = activeRich.value;
+        if (s !== en) {
+          var cleaned = val.slice(s, en).replace(/<[^>]+>/g, "");
+          activeRich.value = val.slice(0, s) + cleaned + val.slice(en);
+        } else {
+          activeRich.value = val.replace(/<[^>]+>/g, "");
+        }
+        activeRich.dispatchEvent(new Event("input", { bubbles: true }));
+        rtb.classList.remove("show");
+        return;
+      }
+      var tagMap = { bold: "b", italic: "i", underline: "u", strikethrough: "s" };
+      if (tagMap[cmd]) { wrapSel(activeRich, tagMap[cmd]); }
+    });
+
+    // Link suggestion dropdown
+    function showLinkDD(x, y) {
+      if (!rtbLL || !rtbLinks) return;
+      var sugg = buildLinkSuggestions();
+      rtbLL.innerHTML = sugg.map(function (l) {
+        return '<div class="rtb-link-row" data-url="' + esc(l.url) + '">'
+          + '<span>' + esc(l.label) + '</span>'
+          + '<span class="rtb-link-url">' + esc(l.url) + '</span>'
+          + '</div>';
+      }).join("");
+      $$(".rtb-link-row", rtbLL).forEach(function (row) {
+        row.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+          applyLink(row.dataset.url);
+          hideTB();
+        });
+      });
+      rtbLinks.style.left = Math.max(4, Math.min(x, window.innerWidth - 250)) + "px";
+      rtbLinks.style.top = y + "px";
+      rtbLinks.classList.add("show");
+      var cu = $("#rtbCustomUrl");
+      if (cu) { cu.value = ""; cu.focus(); }
+    }
+
+    // Custom URL input handlers
+    var cu = $("#rtbCustomUrl");
+    if (cu) {
+      cu.addEventListener("mousedown", function (e) { e.stopPropagation(); });
+      cu.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          var url = cu.value.trim();
+          if (url) { applyLink(url); hideTB(); if (activeRich) activeRich.focus(); }
+        }
+        if (e.key === "Escape") { hideTB(); if (activeRich) activeRich.focus(); }
+      });
+    }
+
+    function applyLink(url) {
+      if (!activeRich) return;
+      var s = activeRich.selectionStart, en = activeRich.selectionEnd, val = activeRich.value;
+      var sel = s !== en ? val.slice(s, en) : url;
+      var link = "<a href='" + esc(url) + "'>" + sel + "</a>";
+      activeRich.value = val.slice(0, s) + link + val.slice(en);
+      activeRich.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    // Close on outside click
+    document.addEventListener("mousedown", function (e) {
+      if (!rtb.contains(e.target) && !(rtbLinks && rtbLinks.contains(e.target)) && e.target !== activeRich) {
+        hideTB();
+      }
+    });
+  })();
 
   /* ---------- init ---------- */
   buildLib();
