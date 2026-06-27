@@ -1270,10 +1270,30 @@
     var postBlocks = S.blocks.filter(function (b) { return POST_BLOCKS[b.type]; });
     var firstPostIdx = S.blocks.findIndex(function (b) { return POST_BLOCKS[b.type]; });
 
+    // Single-post / static-page view — always needed regardless of which post blocks exist
+    var singlePostHtml =
+      "<b:if cond='data:view.isSingleItem'>" +
+        "<b:loop values='data:posts' var='post'>" +
+          "<article class='bxb-post-single'><div class='wrap' style='max-width:780px;padding:40px 20px 64px'>" +
+            "<b:if cond='data:post.labels'><div class='post-cats' style='margin-bottom:12px'>" +
+              "<b:loop values='data:post.labels' var='label'><a expr:href='data:label.url' class='post-cat'><data:label.name/></a></b:loop>" +
+            "</div></b:if>" +
+            "<h1 class='post-title' style='font-size:clamp(26px,4vw,38px);font-weight:700;line-height:1.2;margin:0 0 16px'><data:post.title/></h1>" +
+            "<div class='post-meta' style='display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:#828aa0;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid #eef'>" +
+              "<span><data:post.author.name/></span><span><data:post.date/></span>" +
+            "</div>" +
+            "<b:if cond='data:post.featuredImage'><img expr:src='resizeImage(data:post.featuredImage,1200,\"auto\")' expr:alt='data:post.title' style='width:100%;height:auto;border-radius:var(--radius);margin-bottom:28px;display:block' loading='eager'/></b:if>" +
+            "<div class='post-body' style='font-size:16px;line-height:1.8'><data:post.body/></div>" +
+          "</div></article>" +
+        "</b:loop>" +
+      "</b:if>";
+
     // The Blog widget includable: contains all post-driven sections in order.
     var includableBody = postBlocks.length
-      ? postBlocks.map(function (b) { return condWrap(renderBlockStatic(b), b); }).join("\n")
-      : "<b:if cond='data:view.isMultipleItems'><b:loop values='data:posts' var='post'><article class='bxb-post'><h2><a expr:href='data:post.url'><data:post.title/></a></h2><div class='post-body'><data:post.body/></div></article></b:loop></b:if><b:if cond='data:view.isSingleItem'><b:loop values='data:posts' var='post'><article><h1 class='post-title'><data:post.title/></h1><div class='post-body'><data:post.body/></div></article></b:loop></b:if>";
+      ? "<b:if cond='data:view.isMultipleItems'>\n" +
+        postBlocks.map(function (b) { return condWrap(renderBlockStatic(b), b); }).join("\n") +
+        "\n<b:else/>\n" + singlePostHtml + "\n</b:if>"
+      : "<b:if cond='data:view.isMultipleItems'><b:loop values='data:posts' var='post'><article class='bxb-post'><h2><a expr:href='data:post.url'><data:post.title/></a></h2><div class='post-body'><data:post.body/></div></article></b:loop></b:if>" + singlePostHtml;
     var blogWidget =
       "<b:section id='main' class='main-section' mobile='yes' showaddelement='no'>\n" +
       "<b:widget id='Blog1' title='บทความ' type='Blog' version='2' visible='true'>\n" +
@@ -1436,6 +1456,20 @@ skinVariables(d),
 "@media(max-width:768px){.bxb-page-layout{display:block;padding:16px 20px}.bxb-sidebar-col{margin-top:20px}}",
 ".widget{margin-bottom:1.5rem}",
 ".widget-title{font-size:1rem;font-weight:700;margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:2px solid var(--primary)}",
+".bxb-post-single{min-height:60vh}",
+".post-cat{font-size:12px;font-weight:600;color:var(--primary);text-transform:uppercase;letter-spacing:.06em;margin-right:8px;text-decoration:none}",
+".post-cat:hover{text-decoration:underline}",
+".post-body img{border-radius:var(--radius);max-width:100%;height:auto;display:block;margin:24px 0}",
+".post-body h2{font-size:24px;font-weight:700;margin:32px 0 12px;line-height:1.25}",
+".post-body h3{font-size:20px;font-weight:700;margin:24px 0 10px;line-height:1.3}",
+".post-body h4{font-size:17px;font-weight:600;margin:20px 0 8px}",
+".post-body p{margin-bottom:16px}",
+".post-body ul,.post-body ol{margin:0 0 16px 24px;line-height:1.8}",
+".post-body a{color:var(--primary);text-decoration:underline}",
+".post-body blockquote{border-left:4px solid var(--primary);padding:12px 16px;margin:20px 0;background:rgba(99,102,241,.05);border-radius:0 var(--radius) var(--radius) 0}",
+".post-body pre{background:#f7f8fc;padding:16px;border-radius:var(--radius);overflow-x:auto;font-size:13px;line-height:1.6;margin-bottom:16px}",
+".post-body code{font-family:monospace;background:#f0f1f7;padding:2px 6px;border-radius:4px;font-size:13px}",
+".post-body pre code{background:none;padding:0}",
 ".site-footer{background:#0f172a;color:#fff;padding:52px 20px 28px}",
 ".footer-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:48px;max-width:980px;margin:0 auto;align-items:start}",
 "@media(max-width:768px){.footer-grid{grid-template-columns:1fr;gap:28px}}",
