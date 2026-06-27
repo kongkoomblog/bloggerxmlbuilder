@@ -1655,7 +1655,7 @@ skinVariables(d),
     $("#startScreen").style.display = "none";
     $("#projName").value = S.name;
     HISTORY = []; pushHistory();
-    renderCanvas(); renderProps(); renderSeo(); renderDesign(); setupLibDrag(); save();
+    setView(VIEW); renderProps(); renderSeo(); renderDesign(); setupLibDrag(); save();
   }
 
   /* ---------- build left library ---------- */
