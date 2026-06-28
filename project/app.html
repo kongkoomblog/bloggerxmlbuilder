@@ -382,8 +382,8 @@ button{font-family:inherit;cursor:pointer;}
   .workspace{grid-template-columns:1fr;}
   /* panels become full-width bottom sheets that slide up */
   /* dvh = dynamic viewport height — shrinks when virtual keyboard opens (Chrome 108+, Safari 16+) */
-  /* Without dvh support: 72vh fallback (good enough for resize-viewport browsers) */
-  .panel.left,.panel.right{display:none;position:fixed;left:0;right:0;bottom:54px;top:auto;width:100%;max-width:100%;max-height:72vh;max-height:calc(100dvh - 108px);min-height:calc(100dvh - 108px);z-index:30;border:0;border-top:1px solid var(--border-2);border-radius:18px 18px 0 0;box-shadow:0 -16px 50px rgba(0,0,0,.55);animation:sheetUp .26s cubic-bezier(.22,1,.36,1);}
+  /* Without dvh support: 72vh fallback. max-height only — panel stays content-sized, no full-height overlap */
+  .panel.left,.panel.right{display:none;position:fixed;left:0;right:0;bottom:54px;top:auto;width:100%;max-width:100%;max-height:72vh;max-height:calc(100dvh - 108px);z-index:30;border:0;border-top:1px solid var(--border-2);border-radius:18px 18px 0 0;box-shadow:0 -16px 50px rgba(0,0,0,.55);animation:sheetUp .26s cubic-bezier(.22,1,.36,1);}
   .panel.left::before,.panel.right::before{content:"";display:block;width:38px;height:4px;border-radius:3px;background:var(--border-2);margin:9px auto 2px;flex:none;}
   .sheet-close{display:flex !important;position:absolute;top:8px;right:10px;width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--surface-2);color:var(--ink);align-items:center;justify-content:center;font-size:16px;z-index:5;}
   body.show-left .panel.left{display:flex;} body.show-right .panel.right{display:flex;}
@@ -423,6 +423,8 @@ button{font-family:inherit;cursor:pointer;}
   /* backdrop behind bottom sheet — covers canvas so nothing shows through */
   #mobScrim{display:none;position:fixed;inset:54px 0 54px 0;background:rgba(0,0,0,.55);z-index:29;backdrop-filter:blur(2px);}
   body.show-left #mobScrim,body.show-right #mobScrim{display:block;}
+  /* hide view switcher when a panel is open — it's useless (canvas is hidden) and overlaps panel tabs */
+  body.show-left .tb-views,body.show-right .tb-views{display:none;}
   /* bottom bar: 3 nav + lang toggle */
   .mob-switch{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;position:fixed;bottom:0;left:0;right:0;height:54px;padding:8px 10px;background:var(--panel);border-top:1px solid var(--border);z-index:35;}
   .mob-switch button{border:1px solid var(--border);background:var(--surface);border-radius:9px;color:var(--ink-2);font-family:var(--fd);font-weight:600;font-size:12.5px;display:flex;align-items:center;justify-content:center;gap:6px;}
