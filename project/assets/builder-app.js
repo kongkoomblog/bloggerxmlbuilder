@@ -462,13 +462,13 @@
           + '<p style="font-size:13.5px;color:#4a5063;margin:0;line-height:1.65">' + tpl("สรุปเนื้อหาบทความอัตโนมัติจาก snippet — เพิ่มโอกาสให้ Google และ AI ดึงข้อมูลนี้แสดงในผลการค้นหา","Article summary auto-pulled from snippet — improves chances for Google & AI to show in search results") + '</p>'
           + '</aside></div>';
       case "toc":
-        return '<div style="padding:16px 32px"><nav style="padding:14px 16px;background:#f7f8fc;border-radius:' + r + ';border:1px solid #eef">'
-          + '<div style="font-size:11px;font-weight:700;color:' + pr + ';text-transform:uppercase;letter-spacing:.07em;margin-bottom:9px">&#128209; ' + esc(p.title || "สารบัญ") + '</div>'
-          + '<ol style="padding-left:18px;margin:0;font-size:13px;color:#4a5063;line-height:1.9">'
+        return '<div style="padding:16px 32px"><nav style="background:#f7f8fc;border-radius:' + r + ';border:1px solid #eef;overflow:hidden">'
+          + '<div style="display:flex;align-items:center;padding:11px 16px;font-size:11px;font-weight:700;color:' + pr + ';text-transform:uppercase;letter-spacing:.07em;cursor:pointer">&#128209; ' + esc(p.title || "สารบัญ") + '<span style="margin-left:auto;font-size:10px;color:#828aa0">&#9660;</span></div>'
+          + '<div style="padding:0 16px"><ol style="padding-left:18px;margin:6px 0 12px;font-size:13px;color:#4a5063;line-height:1.9">'
           + '<li>' + tpl("หัวข้อที่ 1 (h2)","Heading 1 (h2)") + '</li>'
           + '<li>' + tpl("หัวข้อที่ 2","Heading 2") + '<ol style="padding-left:14px;margin:0"><li style="font-size:12px">' + tpl("หัวข้อย่อย (h3)","Subheading (h3)") + '</li></ol></li>'
           + '<li>' + tpl("หัวข้อที่ 3","Heading 3") + '</li>'
-          + '</ol></nav></div>';
+          + '</ol></div></nav></div>';
       case "related":
         var rCols = p.columns || 2, rCards = "";
         for (var ri = 0; ri < Math.min(p.count || 4, rCols * 2); ri++) rCards += postCard(p.showImage, false, d, ac);
@@ -1860,13 +1860,13 @@ skinVariables(d),
           + (p.label ? "<div style='font-size:13px;color:#828aa0;margin-bottom:14px'>" + esc(p.label) + "</div>" : "")
           + "<b:if cond='data:view.isSingleItem'><div style='display:flex;gap:10px;justify-content:center;flex-wrap:wrap'>"
           + (p.facebook ? "<a expr:href='\"https://www.facebook.com/sharer/sharer.php?u=\" + data:post.url' target='_blank' rel='noopener noreferrer' style='padding:10px 18px;background:#1877f2;color:#fff;border-radius:var(--radius);font-weight:600;font-size:13px'>Facebook</a>" : "")
-          + (p.twitter ? "<a expr:href='\"https://twitter.com/intent/tweet?url=\" + data:post.url + \"&text=\" + data:post.title' target='_blank' rel='noopener noreferrer' style='padding:10px 18px;background:#000;color:#fff;border-radius:var(--radius);font-weight:600;font-size:13px'>X (Twitter)</a>" : "")
+          + (p.twitter ? "<a expr:href='\"https://twitter.com/intent/tweet?url=\" + data:post.url + \"&amp;text=\" + data:post.title' target='_blank' rel='noopener noreferrer' style='padding:10px 18px;background:#000;color:#fff;border-radius:var(--radius);font-weight:600;font-size:13px'>X (Twitter)</a>" : "")
           + (p.line ? "<a expr:href='\"https://social-plugins.line.me/lineit/share?url=\" + data:post.url' target='_blank' rel='noopener noreferrer' style='padding:10px 18px;background:#06c755;color:#fff;border-radius:var(--radius);font-weight:600;font-size:13px'>LINE</a>" : "")
           + "</div></b:if></div></section>";
       case "sidebar":
         var sWidgets = "";
         if (p.showSearch) sWidgets += "<b:widget id='BlogSearch1' type='BlogSearch' title='ค้นหา' version='1' visible='true'/>\n";
-        if (p.showCategories) sWidgets += "<b:widget id='Label1' type='Label' title='" + tpl("ป้ายกำกับ","Labels") + "' version='1' visible='true'>\n<b:widget-settings><b:widget-setting name='sorting'>ALPHA</b:widget-setting><b:widget-setting name='display'>list</b:widget-setting><b:widget-setting name='showFreqNumbers'>true</b:widget-setting></b:widget-settings></b:widget>\n";
+        if (p.showCategories) sWidgets += "<b:widget id='Label1' type='Label' title='" + tpl("ป้ายกำกับ","Labels") + "' version='1' visible='true'>\n<b:widget-settings><b:widget-setting name='sorting'>ALPHA</b:widget-setting><b:widget-setting name='display'>LIST</b:widget-setting><b:widget-setting name='showFreqNumbers'>true</b:widget-setting></b:widget-settings></b:widget>\n";
         if (p.showArchive) sWidgets += "<b:widget id='BlogArchive1' type='BlogArchive' title='" + tpl("คลังบทความ","Archive") + "' version='2' visible='true'>\n<b:widget-settings><b:widget-setting name='pageType'>MONTHLY</b:widget-setting><b:widget-setting name='showPostCount'>true</b:widget-setting></b:widget-settings></b:widget>\n";
         if (p.showAbout) sWidgets += "<b:widget id='Profile1' type='Profile' title='" + tpl("เกี่ยวกับฉัน","About me") + "' version='1' visible='true'/>\n";
         return "<b:section id='sidebar' class='bxb-sidebar-col' mobile='yes' showaddelement='yes' preferred='yes'>\n" + sWidgets + "</b:section>";
@@ -1941,29 +1941,57 @@ skinVariables(d),
         var tocTitle = esc(p.title || "สารบัญ");
         var tocDepth = parseInt(p.maxDepth || 3, 10);
         var tocSel = tocDepth >= 3 ? "'h2,h3'" : "'h2'";
-        var tocTag = p.numbered !== false ? "ol" : "ul";
+        var tocListStyle = p.numbered !== false ? "'decimal'" : "'disc'";
         return "<b:if cond='data:view.isSingleItem'>"
-          + "<nav id='bxbToc' class='bxb-toc' aria-label='" + tocTitle + "' style='margin:20px 0;padding:16px 18px;background:var(--surface-2,#f7f8fc);border-radius:var(--radius,8px);border:1px solid var(--border,#eef)'>"
-          + "<div style='font-size:11.5px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px'>&#128209; " + tocTitle + "</div>"
-          + "<" + tocTag + " id='bxbTocList' style='padding-left:20px;margin:0;font-size:14px;line-height:1.9'></" + tocTag + ">"
+          + "<style>"
+          + "#bxbToc{margin:20px 0;background:var(--bg-surface);border-radius:var(--radius,8px);border:1px solid var(--border);overflow:hidden}"
+          + "#bxbTocHead{display:flex;align-items:center;gap:8px;padding:11px 16px;font-size:11.5px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.07em;background:none;border:none;width:100%;text-align:left;cursor:pointer}"
+          + "#bxbTocHead:hover{background:var(--hover-bg)}"
+          + "#bxbTocChev{margin-left:auto;font-size:11px;color:var(--text-muted);transition:transform .25s}"
+          + "#bxbTocBody{overflow:hidden;padding:0 16px}"
+          + "#bxbTocList{margin:6px 0 12px;padding-left:20px;font-size:14px;line-height:1.9;color:var(--text-main)}"
+          + "#bxbTocList .toc-h3{padding-left:14px;font-size:13px}"
+          + "#bxbTocList a{color:var(--text-muted);text-decoration:none}"
+          + "#bxbTocList a:hover{color:var(--primary)}"
+          + "</style>"
+          + "<nav id='bxbToc' aria-label='" + tocTitle + "'>"
+          + "<button type='button' id='bxbTocHead' aria-expanded='true' aria-controls='bxbTocBody'>&#128209; " + tocTitle + "<span id='bxbTocChev' aria-hidden='true'>&#9660;</span></button>"
+          + "<div id='bxbTocBody'><ul id='bxbTocList'></ul></div>"
           + "</nav>"
           + "<script>/*<![CDATA[*/(function(){"
           + "var toc=document.getElementById('bxbToc');"
           + "var list=document.getElementById('bxbTocList');"
-          + "var body=document.querySelector('.post-body,.entry-content');"
-          + "if(!toc||!list||!body)return;"
-          + "var hs=body.querySelectorAll(" + tocSel + ");"
+          + "var content=document.querySelector('.post-body,.entry-content');"
+          + "if(!toc||!list||!content)return;"
+          + "var hs=Array.prototype.slice.call(content.querySelectorAll(" + tocSel + "));"
           + "if(hs.length<2){toc.remove();return;}"
+          + "var numRe=/^\\s*\\d+[.)。]\\s+/;"
+          + "var hasNums=hs.some(function(h){return numRe.test(h.textContent.trim());});"
+          + "list.style.listStyle=hasNums?'none':" + tocListStyle + ";"
+          + "if(hasNums)list.style.paddingLeft='4px';"
           + "hs.forEach(function(h,i){"
           + "h.id='bxb-h'+i;"
           + "var li=document.createElement('li');"
-          + (tocDepth >= 3 ? "if(h.tagName==='H3')li.style.paddingLeft='14px';" : "")
+          + (tocDepth >= 3 ? "if(h.tagName==='H3')li.className='toc-h3';" : "")
           + "var a=document.createElement('a');"
           + "a.href='#bxb-h'+i;"
-          + "a.textContent=h.textContent;"
-          + "a.style.color='inherit';"
-          + "a.style.textDecoration='none';"
+          + "a.textContent=h.textContent.trim();"
           + "li.appendChild(a);list.appendChild(li);"
+          + "});"
+          + "var head=document.getElementById('bxbTocHead');"
+          + "var chev=document.getElementById('bxbTocChev');"
+          + "var bodyEl=document.getElementById('bxbTocBody');"
+          + "var fullH=bodyEl.scrollHeight;"
+          + "bodyEl.style.maxHeight='0';"
+          + "void bodyEl.offsetHeight;"
+          + "bodyEl.style.transition='max-height .35s ease';"
+          + "head.setAttribute('aria-expanded','false');"
+          + "chev.style.transform='rotate(-90deg)';"
+          + "head.addEventListener('click',function(){"
+          + "var open=head.getAttribute('aria-expanded')==='true';"
+          + "head.setAttribute('aria-expanded',open?'false':'true');"
+          + "bodyEl.style.maxHeight=open?'0':fullH+'px';"
+          + "chev.style.transform=open?'rotate(-90deg)':'';"
           + "});"
           + "})();/*]]>*/<\/script>"
           + "</b:if>";
