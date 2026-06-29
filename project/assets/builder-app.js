@@ -435,6 +435,27 @@
             '<div style="display:grid;grid-template-columns:repeat(' + techGCols + ',1fr);gap:20px">' + techGCards + '</div>' +
           '</div></section>';
         }
+        if (S && S.templateId === "magazine") {
+          var magGCols = VIEW === "mobile" ? 1 : VIEW === "tablet" ? 2 : (p.columns || 3);
+          var magGCards = "";
+          var magGCats = BL === "en" ? ["Politics", "Economy", "Tech", "Culture", "Sports", "Health"] : ["การเมือง", "เศรษฐกิจ", "เทคโนโลยี", "วัฒนธรรม", "กีฬา", "สุขภาพ"];
+          for (var mgi = 0; mgi < (p.count || 6); mgi++) {
+            var mgCat = magGCats[mgi % 6];
+            magGCards += '<article style="border-radius:' + r + ';overflow:hidden;border:1px solid #eef;background:#fff">' +
+              '<div style="aspect-ratio:16/9;background:linear-gradient(135deg,' + pr + '18,' + ac + '28)"></div>' +
+              '<div style="padding:13px 15px 17px">' +
+                '<span style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:' + pr + ';display:block;margin-bottom:6px">' + mgCat + '</span>' +
+                '<h3 style="font-family:' + fontStack(d.font) + ';font-size:17px;font-weight:700;line-height:1.3;margin:0 0 8px;color:#0f172a">' + tpl("หัวข้อข่าว/บทความที่ ", "Article #") + (mgi + 1) + '</h3>' +
+                (p.showExcerpt ? '<p style="font-size:13px;color:#64748b;line-height:1.55;margin:0 0 9px">' + tpl("เนื้อหาโดยสรุปสั้นๆ ก่อนคลิกอ่านบทความฉบับเต็ม...", "A brief summary before reading the full article...") + '</p>' : '') +
+                '<div style="font-size:12px;color:#94a3b8">' + tpl("24 มิ.ย. 2569", "Jun 24, 2026") + '</div>' +
+              '</div>' +
+            '</article>';
+          }
+          return '<section style="padding:48px 0"><div style="max-width:1180px;margin:0 auto;padding:0 20px">' +
+            (p.heading ? '<h2 style="font-family:' + fontStack(d.font) + ';font-size:20px;font-weight:800;margin:0 0 18px;color:#0f172a;text-transform:uppercase;letter-spacing:.04em;border-left:4px solid ' + pr + ';padding-left:12px">' + esc(p.heading) + '</h2>' : '') +
+            '<div style="display:grid;grid-template-columns:repeat(' + magGCols + ',1fr);gap:18px">' + magGCards + '</div>' +
+          '</div></section>';
+        }
         if (S && S.templateId === "travel") {
           var tbCols = VIEW === "mobile" ? 1 : VIEW === "tablet" ? 2 : (p.columns || 3);
           var tbCards = "";
@@ -484,6 +505,21 @@
         for (var i = 0; i < (p.count || 6); i++) cards += postCard(p.showImage, p.showExcerpt, d, ac);
         return section(p.heading, d, '<div style="display:grid;grid-template-columns:repeat(' + pgCols + ',1fr);gap:20px">' + cards + "</div>");
       case "postlist":
+        if (S && S.templateId === "magazine") {
+          var magLCats = BL === "en" ? ["Breaking", "Politics", "Economy", "Tech", "Culture"] : ["ข่าวด่วน", "การเมือง", "เศรษฐกิจ", "เทคโนโลยี", "วัฒนธรรม"];
+          var magLRows = "";
+          for (var mli = 0; mli < (p.count || 5); mli++) {
+            magLRows += '<div style="display:flex;gap:10px;align-items:center;border-bottom:1px solid #eef;padding:13px 0">' +
+              '<span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:' + pr + ';padding:2px 8px;border-radius:3px;white-space:nowrap;flex:none">' + magLCats[mli % 5] + '</span>' +
+              '<div style="font-family:' + fontStack(d.font) + ';font-size:15px;font-weight:600;color:#0f172a;flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' + tpl("หัวข้อข่าว/บทความที่ ", "Headline #") + (mli + 1) + '</div>' +
+              '<span style="font-size:12px;color:#94a3b8;white-space:nowrap;flex:none">' + tpl("24 มิ.ย.", "Jun 24") + '</span>' +
+            '</div>';
+          }
+          return '<section style="padding:44px 0"><div style="max-width:1180px;margin:0 auto;padding:0 20px">' +
+            (p.heading ? '<h2 style="font-family:' + fontStack(d.font) + ';font-size:20px;font-weight:800;margin:0 0 4px;color:#0f172a;text-transform:uppercase;letter-spacing:.04em;border-left:4px solid ' + pr + ';padding-left:12px">' + esc(p.heading) + '</h2>' : '') +
+            magLRows +
+          '</div></section>';
+        }
         if (S && S.templateId === "tech") {
           var techListTags = ["JavaScript", "Python", "CSS", "Go", "Linux"];
           var techListRows = "";
@@ -509,6 +545,34 @@
         for (var j = 0; j < (p.count || 5); j++) rows += postRow(p.showImage, d, ac);
         return section(p.heading, d, '<div style="display:flex;flex-direction:column;gap:16px">' + rows + "</div>");
       case "featured":
+        if (S && S.templateId === "magazine") {
+          var magCats = BL === "en" ? ["Breaking", "Politics", "Economy"] : ["ข่าวด่วน", "การเมือง", "เศรษฐกิจ"];
+          var magMain = '<div style="position:relative;border-radius:' + r + ';overflow:hidden;background:linear-gradient(135deg,' + pr + ',' + ac + ');min-height:340px;display:flex;align-items:flex-end">' +
+            '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.82) 0%,transparent 55%)"></div>' +
+            '<div style="position:relative;padding:20px 22px;color:#fff">' +
+              '<span style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;background:' + pr + ';padding:3px 9px;border-radius:3px;margin-bottom:10px;display:inline-block">' + magCats[0] + '</span>' +
+              '<h3 style="font-family:' + fontStack(d.font) + ';font-size:22px;font-weight:800;line-height:1.2;margin:0 0 7px;color:#fff">' + tpl("หัวข้อข่าวสำคัญประจำวัน", "Top Story of the Day") + '</h3>' +
+              '<div style="font-size:12px;color:rgba(255,255,255,.65)">' + tpl("24 มิ.ย. 2569", "Jun 24, 2026") + '</div>' +
+            '</div>' +
+          '</div>';
+          var magSideItems = [1, 2].map(function (n) {
+            return '<div style="position:relative;border-radius:' + r + ';overflow:hidden;background:linear-gradient(135deg,' + ac + ',' + pr + ');flex:1;min-height:140px;display:flex;align-items:flex-end">' +
+              '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.78) 0%,transparent 60%)"></div>' +
+              '<div style="position:relative;padding:10px 12px;color:#fff">' +
+                '<div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.75);margin-bottom:3px">' + magCats[n] + '</div>' +
+                '<div style="font-family:' + fontStack(d.font) + ';font-size:14px;font-weight:700;line-height:1.25;color:#fff">' + tpl("หัวข้อบทความย่อย " + n, "Sub Story " + n) + '</div>' +
+              '</div>' +
+            '</div>';
+          });
+          return '<section style="padding:44px 0;border-bottom:3px solid ' + pr + '">' +
+            '<div style="max-width:1180px;margin:0 auto;padding:0 20px">' +
+            (p.heading ? '<h2 style="font-family:' + fontStack(d.font) + ';font-size:20px;font-weight:800;margin:0 0 18px;color:#0f172a;text-transform:uppercase;letter-spacing:.04em;border-left:4px solid ' + pr + ';padding-left:12px">' + esc(p.heading) + '</h2>' : '') +
+            '<div style="display:grid;grid-template-columns:2fr 1fr;gap:14px">' +
+              magMain +
+              '<div style="display:flex;flex-direction:column;gap:10px">' + magSideItems.join("") + '</div>' +
+            '</div>' +
+            '</div></section>';
+        }
         if (S && S.templateId === "travel") {
           var tbDestinations = [
             { bg: pr, label: tpl("📍 จุดหมายหลัก", "📍 Top Destination"), title: tpl("บทความท่องเที่ยวเด่น", "Featured Travel Story"), size: "20px" },
@@ -2045,7 +2109,45 @@ skinVariables(d),
 ".tech-card-title a:hover{color:var(--primary)}",
 ".tech-card-excerpt{font-size:13.5px;color:var(--text-muted);line-height:1.6;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin:0 0 10px}",
 ".tech-card-read{font-size:13px;color:var(--primary);font-weight:600;text-decoration:none}",
-"@media(max-width:640px){.tech-hero{padding:52px 20px}.tech-list-row{flex-direction:column;gap:6px}}"
+"@media(max-width:640px){.tech-hero{padding:52px 20px}.tech-list-row{flex-direction:column;gap:6px}}",
+".mag-feat{padding:52px 0;border-bottom:3px solid var(--primary)}",
+".mag-feat-grid{display:grid;grid-template-columns:2fr 1fr;gap:14px}",
+".mag-feat-main{position:relative;border-radius:var(--radius);overflow:hidden;background:linear-gradient(135deg,var(--primary),var(--accent));min-height:380px;display:flex;align-items:flex-end;text-decoration:none;display:block}",
+".mag-feat-main img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s}",
+".mag-feat-main:hover img{transform:scale(1.04)}",
+".mag-feat-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.82) 0%,rgba(0,0,0,.15) 55%,transparent 100%)}",
+".mag-feat-info{position:absolute;bottom:0;left:0;right:0;padding:22px 24px;color:#fff}",
+".mag-feat-cat{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;background:var(--primary);color:#fff;padding:3px 10px;border-radius:3px;display:inline-block;margin-bottom:10px}",
+".mag-feat-title{font-size:clamp(19px,3vw,27px);font-weight:800;line-height:1.2;color:#fff;margin:0 0 7px;font-family:var(--font)}",
+".mag-feat-meta{font-size:12px;color:rgba(255,255,255,.65)}",
+".mag-side{display:flex;flex-direction:column;gap:10px}",
+".mag-side-item{position:relative;border-radius:var(--radius);overflow:hidden;background:linear-gradient(135deg,var(--accent),var(--primary));flex:1;min-height:160px;text-decoration:none;display:block}",
+".mag-side-item img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s}",
+".mag-side-item:hover img{transform:scale(1.05)}",
+".mag-side-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.78) 0%,transparent 60%)}",
+".mag-side-info{position:absolute;bottom:0;left:0;right:0;padding:12px 14px;color:#fff}",
+".mag-side-cat{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.78);margin-bottom:4px}",
+".mag-side-title{font-size:15px;font-weight:700;line-height:1.25;color:#fff;font-family:var(--font)}",
+".mag-grid{display:grid;gap:22px}",
+".mag-card{border-radius:var(--radius);overflow:hidden;background:var(--bg-surface);border:1px solid var(--border);transition:box-shadow .2s}",
+".mag-card:hover{box-shadow:0 6px 22px rgba(0,0,0,.09)}",
+".mag-card-img{aspect-ratio:16/9;overflow:hidden;position:relative;background:linear-gradient(135deg,var(--primary)20,var(--accent)30)}",
+".mag-card-img img{width:100%;height:100%;object-fit:cover;display:block;position:absolute;inset:0;transition:transform .4s}",
+".mag-card:hover .mag-card-img img{transform:scale(1.04)}",
+".mag-card-body{padding:14px 17px 18px}",
+".mag-card-cat{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--primary);margin-bottom:7px;display:block}",
+".mag-card-title{font-size:17px;font-weight:700;line-height:1.3;margin:0 0 8px;font-family:var(--font)}",
+".mag-card-title a{color:var(--text-main);text-decoration:none}",
+".mag-card-title a:hover{color:var(--primary)}",
+".mag-card-excerpt{font-size:13.5px;color:var(--text-muted);line-height:1.6;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin:0 0 10px}",
+".mag-card-meta{font-size:12px;color:var(--text-muted)}",
+".mag-news{padding:52px 0}",
+".mag-news-row{display:flex;gap:12px;align-items:center;border-bottom:1px solid var(--border);padding:13px 0}",
+".mag-news-cat{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--primary);padding:2px 8px;border-radius:3px;white-space:nowrap;flex:none}",
+".mag-news-title{font-size:15px;font-weight:600;color:var(--text-main);text-decoration:none;flex:1;min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;line-height:1.35;font-family:var(--font);transition:color .15s}",
+".mag-news-title:hover{color:var(--primary)}",
+".mag-news-date{font-size:12px;color:var(--text-muted);white-space:nowrap;flex:none}",
+"@media(max-width:640px){.mag-feat-grid{grid-template-columns:1fr}.mag-side{flex-direction:row}.mag-side-item{min-height:130px}.mag-news-date{display:none}}"
     ].join("\n");
   }
 
@@ -2217,6 +2319,32 @@ skinVariables(d),
               "</b:loop>" +
             "</div></div></section>";
         }
+        if (S && S.templateId === "magazine") {
+          return "<section style='padding:52px 0'><div class='wrap'>" +
+            (p.heading ? "<h2 style='font-size:20px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-left:4px solid var(--primary);padding-left:12px;margin:0 0 20px;color:var(--text-main);font-family:var(--font)'>" + esc(p.heading) + "</h2>" : "") +
+            "<div class='mag-grid' style='grid-template-columns:repeat(" + (p.columns || 3) + ",1fr)'>" +
+              "<b:loop values='data:posts' var='post'>" +
+                "<article class='mag-card'>" +
+                  "<div class='mag-card-img'>" +
+                    "<b:if cond='data:post.featuredImage'>" +
+                    "<img expr:src='resizeImage(data:post.featuredImage,600,&quot;16:9&quot;)' expr:alt='data:post.title' loading='lazy' width='600' height='338' style='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block'/>" +
+                    "<b:elseif cond='data:post.firstImageUrl'/>" +
+                    "<img expr:src='resizeImage(data:post.firstImageUrl,600,&quot;16:9&quot;)' expr:alt='data:post.title' loading='lazy' width='600' height='338' style='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block'/>" +
+                    "</b:if>" +
+                  "</div>" +
+                  "<div class='mag-card-body'>" +
+                    "<b:if cond='data:post.labels'>" +
+                    "<b:loop values='data:post.labels' index='mcl' var='label'>" +
+                    "<b:if cond='data:mcl == 0'><span class='mag-card-cat'><data:label.name/></span></b:if>" +
+                    "</b:loop></b:if>" +
+                    "<h3 class='mag-card-title'><a expr:href='data:post.url'><data:post.title/></a></h3>" +
+                    (p.showExcerpt ? "<p class='mag-card-excerpt'><b:if cond='data:post.metaDescription != &quot;&quot;'><data:post.metaDescription/><b:else/><b:eval expr='data:post.body snippet { length: 160, links: false, linebreaks: false, ellipsis: true }'/></b:if></p>" : "") +
+                    "<div class='mag-card-meta'><data:post.date/></div>" +
+                  "</div>" +
+                "</article>" +
+              "</b:loop>" +
+            "</div></div></section>";
+        }
         if (S && S.templateId === "travel") {
           return "<section style='padding:52px 0'><div class='wrap'>" +
             (p.heading ? "<h2 style='font-size:24px;font-weight:800;margin:0 0 26px;color:var(--text-main);font-family:var(--font)'>" + esc(p.heading) + "</h2>" : "") +
@@ -2276,6 +2404,23 @@ skinVariables(d),
           "</div></article></b:loop>" +
           "</div></div></section>";
       case "postlist":
+        if (S && S.templateId === "magazine") {
+          return "<section class='mag-news'><div class='wrap'>" +
+            (p.heading ? "<h2 style='font-size:20px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-left:4px solid var(--primary);padding-left:12px;margin:0 0 4px;color:var(--text-main);font-family:var(--font)'>" + esc(p.heading) + "</h2>" : "") +
+            "<b:loop values='data:posts' var='post'>" +
+              "<div class='mag-news-row'>" +
+                "<b:if cond='data:post.labels'>" +
+                "<b:loop values='data:post.labels' index='mnl' var='label'>" +
+                "<b:if cond='data:mnl == 0'><span class='mag-news-cat'><data:label.name/></span></b:if>" +
+                "</b:loop>" +
+                "<b:else/><span class='mag-news-cat' style='visibility:hidden'>—</span>" +
+                "</b:if>" +
+                "<a expr:href='data:post.url' class='mag-news-title'><data:post.title/></a>" +
+                "<span class='mag-news-date'><data:post.date/></span>" +
+              "</div>" +
+            "</b:loop>" +
+          "</div></section>";
+        }
         if (S && S.templateId === "tech") {
           return "<section class='tech-list'><div class='wrap' style='max-width:800px'>" +
             (p.heading ? "<h2 style='font-size:24px;font-weight:800;margin:0 0 8px;color:var(--text-main);font-family:var(--font)'>" + esc(p.heading) + "</h2>" : "") +
@@ -2300,6 +2445,54 @@ skinVariables(d),
           (p.showImage ? "<a expr:href='data:post.url' style='flex:none'><b:if cond='data:post.featuredImage'><img expr:src='resizeImage(data:post.featuredImage,200,&quot;1:1&quot;)' expr:alt='data:post.title' loading='lazy' width='100' height='100' style='border-radius:var(--radius);object-fit:cover;display:block'/><b:elseif cond='data:post.firstImageUrl'/><img expr:src='resizeImage(data:post.firstImageUrl,200,&quot;1:1&quot;)' expr:alt='data:post.title' loading='lazy' width='100' height='100' style='border-radius:var(--radius);object-fit:cover;display:block'/></b:if></a>" : "") +
           "<div style='min-width:0'><h3 style='font-size:17px;margin:0 0 6px'><a expr:href='data:post.url'><data:post.title/></a></h3><p class='post-snippet' style='color:#828aa0;font-size:13px;margin:4px 0 0;line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical'><b:if cond='data:post.metaDescription != &quot;&quot;'><data:post.metaDescription/><b:else/><b:eval expr='data:post.body snippet { length: 170, links: false, linebreaks: false, ellipsis: true }'/></b:if></p></div></article></b:loop></div></section>";
       case "featured":
+        if (S && S.templateId === "magazine") {
+          return "<section class='mag-feat'><div class='wrap'>" +
+            (p.heading ? "<h2 style='font-size:20px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-left:4px solid var(--primary);padding-left:12px;margin:0 0 18px;color:var(--text-main);font-family:var(--font)'>" + esc(p.heading) + "</h2>" : "") +
+            "<div class='mag-feat-grid'>" +
+              "<b:loop values='data:posts' index='mfi' var='post'>" +
+                "<b:if cond='data:mfi == 0'>" +
+                  "<a expr:href='data:post.url' class='mag-feat-main' style='min-height:360px;display:block;position:relative;border-radius:var(--radius);overflow:hidden;background:linear-gradient(135deg,var(--primary),var(--accent));text-decoration:none'>" +
+                    "<b:if cond='data:post.featuredImage'>" +
+                    "<img expr:src='resizeImage(data:post.featuredImage,900,&quot;16:9&quot;)' expr:alt='data:post.title' loading='eager' style='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block'/>" +
+                    "<b:elseif cond='data:post.firstImageUrl'/>" +
+                    "<img expr:src='resizeImage(data:post.firstImageUrl,900,&quot;16:9&quot;)' expr:alt='data:post.title' loading='eager' style='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block'/>" +
+                    "</b:if>" +
+                    "<div class='mag-feat-overlay'></div>" +
+                    "<div class='mag-feat-info'>" +
+                      "<b:if cond='data:post.labels'>" +
+                      "<b:loop values='data:post.labels' index='mfl' var='label'>" +
+                      "<b:if cond='data:mfl == 0'><span class='mag-feat-cat'><data:label.name/></span></b:if>" +
+                      "</b:loop></b:if>" +
+                      "<div class='mag-feat-title'><data:post.title/></div>" +
+                      "<div class='mag-feat-meta'><data:post.date/></div>" +
+                    "</div>" +
+                  "</a>" +
+                "</b:if>" +
+              "</b:loop>" +
+              "<div class='mag-side'>" +
+                "<b:loop values='data:posts' index='msi' var='post'>" +
+                  "<b:if cond='data:msi &gt; 0 and data:msi &lt; 3'>" +
+                    "<a expr:href='data:post.url' class='mag-side-item'>" +
+                      "<b:if cond='data:post.featuredImage'>" +
+                      "<img expr:src='resizeImage(data:post.featuredImage,500,&quot;4:3&quot;)' expr:alt='data:post.title' loading='lazy' style='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block'/>" +
+                      "<b:elseif cond='data:post.firstImageUrl'/>" +
+                      "<img expr:src='resizeImage(data:post.firstImageUrl,500,&quot;4:3&quot;)' expr:alt='data:post.title' loading='lazy' style='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block'/>" +
+                      "</b:if>" +
+                      "<div class='mag-side-overlay'></div>" +
+                      "<div class='mag-side-info'>" +
+                        "<b:if cond='data:post.labels'>" +
+                        "<b:loop values='data:post.labels' index='msl' var='label'>" +
+                        "<b:if cond='data:msl == 0'><div class='mag-side-cat'><data:label.name/></div></b:if>" +
+                        "</b:loop></b:if>" +
+                        "<div class='mag-side-title'><data:post.title/></div>" +
+                      "</div>" +
+                    "</a>" +
+                  "</b:if>" +
+                "</b:loop>" +
+              "</div>" +
+            "</div>" +
+          "</div></section>";
+        }
         if (S && S.templateId === "travel") {
           return "<section class='tb-feat'><div class='wrap'>" +
             (p.heading ? "<h2 style='font-size:24px;font-weight:800;margin:0 0 24px;color:var(--text-main);font-family:var(--font)'>" + esc(p.heading) + "</h2>" : "") +
@@ -2920,6 +3113,14 @@ skinVariables(d),
         + '<div style="height:2px;background:rgba(255,255,255,.35);width:80%;border-radius:1px;margin-bottom:4px"></div>'
         + '<div style="height:7px;background:' + c1 + ';width:28%;border-radius:2px"></div>'
         + '</div>';
+    } else if (t.id === "magazine") {
+      heroHtml = '<div class="t-feat-sec" style="display:grid;grid-template-columns:2fr 1fr;gap:3px;padding:5px 6px;background:#f8f9fb;border-bottom:2px solid ' + c1 + '">'
+        + '<div style="background:linear-gradient(135deg,' + c1 + ',' + c2 + ');border-radius:2px;position:relative;display:flex;align-items:flex-end;padding:4px 5px">'
+        + '<div style="background:' + c1 + ';height:2px;width:30%;border-radius:1px;margin-bottom:1px"></div></div>'
+        + '<div style="display:flex;flex-direction:column;gap:2px">'
+        + '<div style="background:linear-gradient(135deg,' + c2 + ',' + c1 + ');border-radius:2px;flex:1"></div>'
+        + '<div style="background:linear-gradient(135deg,' + c1 + ',' + c2 + ');border-radius:2px;flex:1"></div>'
+        + '</div></div>';
     } else if (hasHero) {
       heroHtml = '<div class="t-hero-sec" style="background:linear-gradient(135deg,' + c1 + "," + c2 + ')">'
         + '<div class="th1"></div><div class="th2"></div><div class="tbtn"></div></div>';
